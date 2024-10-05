@@ -2,3 +2,7 @@
 *.vok
 *.vo
 *.aux
+*.d
+*.coq
+*.glob
+*.conf
