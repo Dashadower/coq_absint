@@ -7,10 +7,6 @@ Import ListNotations.
 From Coq Require Import Floats.
 (* Open Scope float_scope. *)
 
-Inductive FMap_Value : Type :=
-    | NatVal (v : nat)
-    | FloatVal (v : float).
-
 Definition total_map (A : Type) := string -> A.
 
 Definition t_empty {A : Type} (v : A) : total_map A :=
@@ -26,11 +22,6 @@ Notation "'_' '!->' v" := (t_empty v)
 Notation "x '!->' v ';' m" := (t_update m x v)
                               (at level 100, v at next level, right associativity).
 
-Definition examplemap' :=
-  ( "nat" !-> NatVal 1;
-    "float" !-> FloatVal 1.5;
-    _ !-> NatVal 0
-  ).
 
 (* **************************** *)
 
@@ -211,4 +202,12 @@ Proof.
       * apply H.
       * apply Hxy.
     + apply Hxy.
+Qed.
+
+Lemma remove_shadow : forall (A : Type) ( m m' : partial_map A)
+                             (x : string),
+  (remove m x) x = None.
+Proof.
+  intros.
+  unfold remove. apply t_update_eq.
 Qed.

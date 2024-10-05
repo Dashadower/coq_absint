@@ -145,3 +145,114 @@ Inductive ceval : com -> state -> state -> Prop :=
       st  =[ while b do c end ]=> st''
 
   where "st =[ c ]=> st'" := (ceval c st st').
+
+
+  /To define the behavior of assert and assume, we need to add notation for an error, which indicates that an assertion has failed. We modify the ceval relation, therefore, so that it relates a start state to either an end state or to error. The result type indicates the end value of a program, either a state or an error:
+Inductive result : Type :=
+  | RNormal : state → result
+  | RError : result.
+Now we are ready to give you the ceval relation for the new language.
+Inductive ceval : com → state → result → Prop :=
+  (* Old rules, several modified *)
+  | E_Skip : ∀ st,
+      st =[ skip ]=> RNormal st
+  | E_Asgn : ∀ st a1 n x,
+      aeval st a1 = n →
+      st =[ x := a1 ]=> RNormal (x !-> n ; st)
+  | E_SeqNormal : ∀ c1 c2 st st' r,
+      st =[ c1 ]=> RNormal st' →
+      st' =[ c2 ]=> r →
+      st =[ c1 ; c2 ]=> r
+  | E_SeqError : ∀ c1 c2 st,
+      st =[ c1 ]=> RError →
+      st =[ c1 ; c2 ]=> RError
+  | E_IfTrue : ∀ st r b c1 c2,
+      beval st b = true →
+      st =[ c1 ]=> r →
+      st =[ if b then c1 else c2 end ]=> r
+  | E_IfFalse : ∀ st r b c1 c2,
+      beval st b = false →
+      st =[ c2 ]=> r →
+      st =[ if b then c1 else c2 end ]=> r
+  | E_WhileFalse : ∀ b st c,
+      beval st b = false →
+      st =[ while b do c end ]=> RNormal st
+  | E_WhileTrueNormal : ∀ st st' r b c,
+      beval st b = true →
+      st =[ c ]=> RNormal st' →
+      st' =[ while b do c end ]=> r →
+      st =[ while b do c end ]=> r
+  | E_WhileTrueError : ∀ st b c,
+      beval st b = true →
+      st =[ c ]=> RError →
+      st =[ while b do c end ]=> RError
+  (* Rules for Assert and Assume *)
+  | E_AssertTrue : ∀ st b,
+      beval st b = true →
+      st =[ assert b ]=> RNormal st
+  | E_AssertFalse : ∀ st b,
+      beval st b = false →
+      st =[ assert b ]=> RError
+  | E_Assume : ∀ st b,
+      beval st b = true →
+      st =[ assume b ]=> RNormal st
+
+where "st '=[' c ']=>' r" := (ceval c st r).
+
+(* 
+To define the behavior of assert and assume, we need to add notation for an error, which indicates that an assertion has failed. We modify the ceval relation, therefore, so that it relates a start state to either an end state or to error. The result type indicates the end value of a program, either a state or an error:
+
+Inductive result : Type :=
+  | RNormal : state → result
+  | RError : result.
+
+
+Now we are ready to give you the ceval relation for the new language.
+Inductive ceval : com → state → result → Prop :=
+  (* Old rules, several modified *)
+  | E_Skip : ∀ st,
+      st =[ skip ]=> RNormal st
+  | E_Asgn : ∀ st a1 n x,
+      aeval st a1 = n →
+      st =[ x := a1 ]=> RNormal (x !-> n ; st)
+  | E_SeqNormal : ∀ c1 c2 st st' r,
+      st =[ c1 ]=> RNormal st' →
+      st' =[ c2 ]=> r →
+      st =[ c1 ; c2 ]=> r
+  | E_SeqError : ∀ c1 c2 st,
+      st =[ c1 ]=> RError →
+      st =[ c1 ; c2 ]=> RError
+  | E_IfTrue : ∀ st r b c1 c2,
+      beval st b = true →
+      st =[ c1 ]=> r →
+      st =[ if b then c1 else c2 end ]=> r
+  | E_IfFalse : ∀ st r b c1 c2,
+      beval st b = false →
+      st =[ c2 ]=> r →
+      st =[ if b then c1 else c2 end ]=> r
+  | E_WhileFalse : ∀ b st c,
+      beval st b = false →
+      st =[ while b do c end ]=> RNormal st
+  | E_WhileTrueNormal : ∀ st st' r b c,
+      beval st b = true →
+      st =[ c ]=> RNormal st' →
+      st' =[ while b do c end ]=> r →
+      st =[ while b do c end ]=> r
+  | E_WhileTrueError : ∀ st b c,
+      beval st b = true →
+      st =[ c ]=> RError →
+      st =[ while b do c end ]=> RError
+  (* Rules for Assert and Assume *)
+  | E_AssertTrue : ∀ st b,
+      beval st b = true →
+      st =[ assert b ]=> RNormal st
+  | E_AssertFalse : ∀ st b,
+      beval st b = false →
+      st =[ assert b ]=> RError
+  | E_Assume : ∀ st b,
+      beval st b = true →
+      st =[ assume b ]=> RNormal st
+
+where "st '=[' c ']=>' r" := (ceval c st r).
+
+ *)
