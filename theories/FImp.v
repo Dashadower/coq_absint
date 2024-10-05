@@ -11,3 +11,11 @@ From Coq Require Import Strings.String.
 Print LoadPath.
 
 From AbsInt Require Import FMaps.
+
+Inductive aexp : Type :=
+  | ANat (n : nat)
+  | AFloat (n : float)
+  | AId (x : string)
+  | APlus (a1 a2 : aexp)
+  | AMinus (a1 a2 : aexp)
+  | AMult (a1 a2 : aexp).

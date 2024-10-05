@@ -13,7 +13,7 @@ Inductive aexp : Type :=
   | AId (x : string)
   | APlus (a1 a2 : aexp)
   | AMinus (a1 a2 : aexp)
-  | AMult (a1 a2 : aexp).
+  | AMult (a1 a2 : aexp). 
 
 Inductive bexp : Type :=
   | BTrue
