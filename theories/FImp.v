@@ -1,20 +1,16 @@
-From Coq Require Import Floats.
-Open Scope float_scope.
 From Coq Require Import Bool.Bool.
-From Coq Require Import Init.Nat.
-From Coq Require Import Arith.Arith.
-From Coq Require Import Arith.EqNat. Import Nat.
 From Coq Require Import Lia.
 From Coq Require Import Lists.List. Import ListNotations.
 From Coq Require Import Strings.String.
-
-Print LoadPath.
-
+(* Print LoadPath. *)
 From AbsInt Require Import FMaps.
+From AbsInt Require Import Number.
+From Coq Require Import ZArith.
+From Coq Require Import QArith.
 
 Inductive aexp : Type :=
-  | ANat (n : nat)
-  | AFloat (n : float)
+  | AInt (n : Z)
+  | ARational (n : Q)
   | AId (x : string)
   | APlus (a1 a2 : aexp)
   | AMinus (a1 a2 : aexp)
@@ -31,8 +27,8 @@ Inductive bexp : Type :=
   | BAnd (b1 b2 : bexp).
 
 Coercion AId : string >-> aexp.
-Coercion ANat : nat >-> aexp.
-Coercion AFloat : float >-> aexp.
+Coercion AInt : Z >-> aexp.
+Coercion ARational : Q >-> aexp.
 
 Declare Custom Entry com.
 Declare Scope com_scope.
@@ -64,29 +60,59 @@ Notation "'~' b"   := (BNot b) (in custom com at level 75, right associativity).
 
 Open Scope com_scope.
 
-Inductive State_Value : Type :=
-  | NatVal (v : nat)
-  | FloatVal (v : float).
-
 Print empty.
 
-Definition empty_st := empty (A := State_Value).
+Definition empty_st := empty (A := Number).
 
 Print empty_st.
 
-Definition state := partial_map State_Value.
+Definition state := partial_map Number.
 Notation "x '!->' v" := (x !-> v ; empty_st) (at level 100).
 
 Inductive Aresult : Type :=
-  | RNormal : state -> Aresult
+  | RNormal : Number -> Aresult
   | RError : Aresult.
 
-Fixpoint aeval (st : state) (* <--- NEW *)
-               (a : aexp) : nat :=
+Compute 5.2.
+
+
+Fixpoint aeval (st : state)
+               (a : aexp) : Aresult :=
   match a with
-  | ANum n => n
-  | AId x => st x                                (* <--- NEW *)
-  | <{a1 + a2}> => (aeval st a1) + (aeval st a2)
-  | <{a1 - a2}> => (aeval st a1) - (aeval st a2)
-  | <{a1 * a2}> => (aeval st a1) * (aeval st a2)
+  | AInt n => RNormal (IntVal n)
+  | ARational f => RNormal (QVal f)
+  | AId x => 
+    match st x with
+    | Some a => RNormal a
+    | None => RError
+    end
+  | <{a1 + a2}> => 
+    match (aeval st a1) with
+    | RNormal v1 =>
+      match (aeval st a2) with
+      | RNormal v2 => RNormal (NAdd v1 v2)
+      | RError => RError
+      end
+    | RError => RError
+    end
+  | <{a1 - a2}> => 
+    match (aeval st a1) with
+    | RNormal v1 =>
+      match (aeval st a2) with
+      | RNormal v2 => RNormal (NSub v1 v2)
+      | RError => RError
+      end
+    | RError => RError
+    end
+  | <{a1 * a2}> => 
+    match (aeval st a1) with
+    | RNormal v1 =>
+      match (aeval st a2) with
+      | RNormal v2 => RNormal (NMult v1 v2)
+      | RError => RError
+      end
+    | RError => RError
+    end
   end.
+
+Compute (aeval empty_st <{1 + 1}>).
