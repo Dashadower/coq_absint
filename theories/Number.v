@@ -51,3 +51,19 @@ Definition NMult (left right : Number) : Number :=
       | QVal r => QVal (l * r)
       end
   end.
+
+Print lt.
+
+(* Definition NLe (left right : Number) : bool :=
+match left with
+| IntVal l =>
+    match right with
+    | IntVal r => Z.leb l r
+    | QVal r => Qleb (ZtoQ l) r
+    end
+| QVal l => 
+    match right with
+    | IntVal r => Z.leb l (ZtoQ r)
+    | QVal r => Qleb l r
+    end
+end. *)

@@ -1,6 +1,7 @@
 COQMODULE    := AbsInt
 COQTHEORIES  := \
 	theories/*.v \
+	theories/domains/*.v \
 
 all: Makefile.coq
 	@+$(MAKE) -f Makefile.coq all
