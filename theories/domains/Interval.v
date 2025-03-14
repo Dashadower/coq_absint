@@ -32,11 +32,23 @@ Definition IntDomain_Orderb (lhs rhs : IntervalDomain) : bool :=
   | Bottom => true
   end.
 
-Lemma IntervalDomain_Order_eq_dec : forall lhs rhs,
+Lemma IntervalDomain_order_orderb : forall lhs rhs,
 IntervalDomain_Order lhs rhs <-> IntDomain_Orderb lhs rhs = true.
 Proof.
   split; generalize dependent rhs.
-  - induction lhs; intros.
+  - induction lhs; intros; destruct rhs.
+    + inversion H. subst. simpl. apply ZInfLe_leb in H3. apply ZInfLe_leb in H5.
+      rewrite H3. rewrite H5. reflexivity.
+    + inversion H.
+    + simpl. reflexivity.
+    + reflexivity.
+  - induction lhs; intros; destruct rhs.
+    + simpl in *. destruct (ZInfLeb z1 z) eqn:Eqb1; destruct (ZInfLeb z0 z2) eqn:Eqb2; try inversion H.
+      apply ZInfLe_leb in Eqb1. try apply ZInfLe_leb in Eqb2. apply IDO_inc; assumption.
+    + simpl in *. inversion H.
+    + apply IDO_lhs_bot.
+    + apply IDO_lhs_bot.
+Qed.
 
 Lemma IntervalDomain_order_refl : forall A,
   IntervalDomain_Order A A.
@@ -64,7 +76,7 @@ Proof.
     + intros. apply IDO_lhs_bot.
 Qed.
 
-Lemma IntervalDomain_order_antisym : forall x y,
+Lemma IntervalDomain_order_antisymm : forall x y,
 IntervalDomain_Order x y -> IntervalDomain_Order y x -> x = y.
 Proof.
   intros x.
@@ -81,6 +93,7 @@ Open Scope Z_scope.
 
 Definition i1 := Interval (Znum 1) (Znum 5).
 Definition i2 := Interval (Znum (-5)) Zposinf.
+Compute IntDomain_Orderb i1 i2.
 
 
 Instance IntervalAbstractDomain : AbstractDomain IntervalDomain ZInf := {
@@ -90,5 +103,5 @@ Instance IntervalAbstractDomain : AbstractDomain IntervalDomain ZInf := {
 
   order_refl := IntervalDomain_order_refl;
   order_trans := IntervalDomain_order_trans;
-  order_antisym := IntervalDomain_order_antisym;
+  order_antisym := IntervalDomain_order_antisymm;
 }.
