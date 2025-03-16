@@ -1,0 +1,4 @@
+- [x] Extend `Imp` to integers.
+- [ ] Extend `Imp` to use partial maps as states, introducing error for undefined variables
+- [ ] Formalize trace semantics of `Imp`
+- [ ] Formalize abstract domains
