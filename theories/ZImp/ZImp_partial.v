@@ -1,6 +1,5 @@
 Set Warnings "-notation-overridden,-parsing,-deprecated-hint-without-locality".
 From Coq Require Import Bool.Bool.
-From Coq Require Import Lia.
 From Coq Require Import Lists.List. Import ListNotations.
 From Coq Require Import Strings.String.
 Print LoadPath.
@@ -26,7 +25,6 @@ Inductive bexp : Type :=
 
 Coercion AId : string >-> aexp.
 Coercion AInt : Z >-> aexp.
-(* Coercion ARational : Q >-> aexp. *)
 
 Declare Custom Entry com.
 Declare Scope com_scope.
@@ -57,40 +55,118 @@ Notation "'~' b"   := (BNot b) (in custom com at level 75, right associativity).
 Open Scope Z_scope.
 Open Scope com_scope.
 
-Print t_empty.
-
 Definition empty_st := empty (A := Z).
 
 Print empty_st.
 
-Definition state := total_map Z.
-Notation "x '!->' v" := (x !-> v ; state) (at level 100).
+Definition state := partial_map Z.
+Notation "x '!->' v" := (x !-> v ; empty_st) (at level 100).
 
+Inductive result : Type :=
+  | SNormal (st : state)
+  | SError.
 
+Inductive aeval_result : Type :=
+  | ANormal (z : Z)
+  | AError.
 
+Inductive beval_result : Type :=
+  | BNormal (b : bool)
+  | BError.
 
-Fixpoint aeval (st : state) (a : aexp) : Z :=
+Fixpoint aeval (st : state) (a : aexp) : aeval_result :=
   match a with
-  | AInt n => n
-  | AId x => st x
-  | <{a1 + a2}> => (aeval st a1) + (aeval st a2)
-  | <{a1 - a2}> => (aeval st a1) - (aeval st a2)
-  | <{a1 * a2}> => (aeval st a1) * (aeval st a2)
+  | AInt n => ANormal n
+  | AId x => 
+    match (st x) with
+    | Some v => ANormal v
+    | None => AError
+    end
+  | <{a1 + a2}> => 
+    match (aeval st a1) with
+    | ANormal a1v => 
+      match (aeval st a2) with
+      | ANormal a2v => ANormal (a1v + a2v)
+      | AError => AError
+      end
+    | AError => AError
+    end
+  | <{a1 - a2}> => 
+    match (aeval st a1) with
+    | ANormal a1v => 
+      match (aeval st a2) with
+      | ANormal a2v => ANormal (a1v - a2v)
+      | AError => AError
+      end
+    | AError => AError
+    end
+  | <{a1 * a2}> => 
+    match (aeval st a1) with
+    | ANormal a1v => 
+      match (aeval st a2) with
+      | ANormal a2v => ANormal (a1v * a2v)
+      | AError => AError
+      end
+    | AError => AError
+    end
   end.
 
-Fixpoint beval (st : state) (b : bexp) : bool :=
+Fixpoint beval (st : state) (b : bexp) : beval_result :=
   match b with
-  | BTrue => true
-  | BFalse => false
-  | BEq a1 a2 => Z.eqb (aeval st a1) (aeval st a2)
-  | BNeq a1 a2 => negb (Z.eqb (aeval st a1) (aeval st a2))
-  | BLe a1 a2 => Z.leb (aeval st a1) (aeval st a2)
-  | BGt a1 a2 => negb (Z.leb (aeval st a1) (aeval st a2))
-  | BNot b1 => negb (beval st b1)
-  | BAnd b1 b2 => andb (beval st b1) (beval st b2)
+  | BTrue => BNormal true
+  | BFalse => BNormal false
+  | BEq a1 a2 => 
+    match (aeval st a1) with
+    | ANormal ar1 =>
+      match (aeval st a2) with
+      | ANormal ar2 => BNormal (Z.eqb ar1 ar2)
+      | AError => BError
+      end
+    | AError => BError
+    end
+  | BNeq a1 a2 =>
+    match (aeval st a1) with
+    | ANormal ar1 =>
+      match (aeval st a2) with
+      | ANormal ar2 => BNormal (negb (Z.eqb ar1 ar2))
+      | AError => BError
+      end
+    | AError => BError
+    end
+  | BLe a1 a2 =>
+    match (aeval st a1) with
+    | ANormal ar1 =>
+      match (aeval st a2) with
+      | ANormal ar2 => BNormal (Z.leb ar1 ar2)
+      | AError => BError
+      end
+    | AError => BError
+    end
+  | BGt a1 a2 =>
+    match (aeval st a1) with
+    | ANormal ar1 =>
+      match (aeval st a2) with
+      | ANormal ar2 => BNormal (negb (Z.leb ar1 ar2))
+      | AError => BError
+      end
+    | AError => BError
+    end
+  | BNot b1 => 
+    match (beval st b1) with 
+    | BNormal true => BNormal false
+    | BNormal false => BNormal true
+    | BError => BError
+    end
+  | BAnd b1 b2 =>
+    match (beval st b1) with
+    | BNormal b1' =>
+      match (beval st b2) with
+      | BNormal b2' => BNormal (andb b1' b2')
+      | BError => BError
+      end
+    | BError => BError
+    end
   end.
-
-
 
 
 Inductive com : Type :=
@@ -129,32 +205,46 @@ Reserved Notation
   (at level 40, c custom com at level 99,
     st constr, st' constr at next level).
 
-Inductive ceval : com -> state -> state -> Prop :=
+Inductive ceval : com -> result -> result -> Prop :=
   | E_Skip : forall st,
-    st =[ skip ]=> st
-  | E_Asgn  : forall st a n x,
-    aeval st a = n ->
-    st =[ x := a ]=> (x !-> n ; st)
+    SNormal st =[ skip ]=> SNormal st
+  | E_Asgn : forall st a n x,
+    aeval st a = ANormal n ->
+    SNormal st =[ x := a ]=> SNormal (x !-> Some n ; st)
+  | E_AsgnError : forall st a x,
+    aeval st a = AError ->
+    SNormal st =[x := a]=> SError
   | E_Seq : forall c1 c2 st st' st'',
-    st  =[ c1 ]=> st'  ->
-    st' =[ c2 ]=> st'' ->
-    st  =[ c1 ; c2 ]=> st''
+    SNormal st  =[ c1 ]=> SNormal st'  ->
+    SNormal st' =[ c2 ]=> SNormal st'' ->
+    SNormal st  =[ c1 ; c2 ]=> SNormal st''
   | E_IfTrue : forall st st' b c1 c2,
-    beval st b = true ->
-    st =[ c1 ]=> st' ->
-    st =[ if b then c1 else c2 end]=> st'
+    beval st b = BNormal true ->
+    SNormal st =[ c1 ]=> SNormal st' ->
+    SNormal st =[ if b then c1 else c2 end]=> SNormal st'
   | E_IfFalse : forall st st' b c1 c2,
-    beval st b = false ->
-    st =[ c2 ]=> st' ->
-    st =[ if b then c1 else c2 end]=> st'
+    beval st b = BNormal false ->
+    SNormal st =[ c2 ]=> SNormal st' ->
+    SNormal st =[ if b then c1 else c2 end]=> SNormal st'
+  | E_IfError : forall st b c1 c2,
+    beval st b = BError ->
+    SNormal st =[ if b then c1 else c2 end ]=> SError
   | E_WhileFalse : forall b st c,
-    beval st b = false ->
-    st =[ while b do c end ]=> st
+    beval st b = BNormal false ->
+    SNormal st =[ while b do c end ]=> SNormal st
   | E_WhileTrue : forall st st' st'' b c,
-    beval st b = true ->
-    st  =[ c ]=> st' ->
-    st' =[ while b do c end ]=> st'' ->
-    st  =[ while b do c end ]=> st''
+    beval st b = BNormal true ->
+    SNormal st  =[ c ]=> SNormal st' ->
+    SNormal st' =[ while b do c end ]=> SNormal st'' ->
+    SNormal st  =[ while b do c end ]=> SNormal st''
+  | E_WhileGuardError : forall st b c,
+    beval st b = BError ->
+    SNormal st =[ while b do c end]=> SError
+  | E_BodyError : forall st b c,
+    beval st b = BNormal true ->
+    SNormal st =[ c ]=> SError ->
+    SNormal st  =[ while b do c end ]=> SError
+
 
   where "st =[ c ]=> st'" := (ceval c st st').
 
@@ -166,14 +256,21 @@ Theorem ceval_deterministic: forall c st st1 st2,
 Proof.
   intros c st st1 st2 E1 E2.
   generalize dependent st2.
+  induction E1; intros st2 E2.
+  - (* E_Skip *)
+    inversion E2. reflexivity.
+  - (* E_Asgn *)
+    inversion E2; subst.
+    + rewrite H in H4. injection H4. intros. subst. reflexivity.
+    + rewrite H in H4. discriminate H4.
+  - (* E_AsgnError *)
+
   induction E1; intros st2 E2; inversion E2; subst.
   - (* E_Skip *) reflexivity.
-  - (* E_Asgn *) reflexivity.
+  - (* E_Asgn *) rewrite H in H4. injection H4. intros. subst. reflexivity.
   - (* E_Seq *)
-    rewrite (IHE1_1 st'0 H1) in *.
-    apply IHE1_2. assumption.
-  - (* E_IfTrue, b evaluates to true *)
-      apply IHE1. assumption.
+    rewrite H in H4. discriminate H4.
+  - rewrite H in H4. discriminate H4.
   - (* E_IfTrue,  b evaluates to false (contradiction) *)
       rewrite H in H5. discriminate.
   - (* E_IfFalse, b evaluates to true (contradiction) *)
