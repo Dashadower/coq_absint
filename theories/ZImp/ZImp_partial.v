@@ -264,25 +264,69 @@ Proof.
     + rewrite H in H4. injection H4. intros. subst. reflexivity.
     + rewrite H in H4. discriminate H4.
   - (* E_AsgnError *)
-
-  induction E1; intros st2 E2; inversion E2; subst.
-  - (* E_Skip *) reflexivity.
-  - (* E_Asgn *) rewrite H in H4. injection H4. intros. subst. reflexivity.
+    inversion E2; subst.
+    + rewrite H in H4. discriminate H4.
+    + reflexivity.
   - (* E_Seq *)
-    rewrite H in H4. discriminate H4.
-  - rewrite H in H4. discriminate H4.
-  - (* E_IfTrue,  b evaluates to false (contradiction) *)
-      rewrite H in H5. discriminate.
-  - (* E_IfFalse, b evaluates to true (contradiction) *)
-      rewrite H in H5. discriminate.
-  - (* E_IfFalse, b evaluates to false *)
-      apply IHE1. assumption.
-  - (* E_WhileFalse, b evaluates to false *)
-    reflexivity.
-  - (* E_WhileFalse, b evaluates to true (contradiction) *)
-    rewrite H in H2. discriminate.
-  - (* E_WhileTrue, b evaluates to false (contradiction) *)
-    rewrite H in H4. discriminate.
-  - (* E_WhileTrue, b evaluates to true *)
-    rewrite (IHE1_1 st'0 H3) in *.
-    apply IHE1_2. assumption.  Qed.
+    inversion E2. subst. apply IHE1_2. apply IHE1_1 in H2. rewrite <- H2 in H4.
+    assumption.
+  - (* E_IfTrue *)
+    inversion E2; subst.
+    + apply IHE1 in H6. assumption.
+    + rewrite H in H5. discriminate H5.
+    + rewrite H in H5. discriminate H5.
+  - (* E_IfFalse *)
+    inversion E2; subst.
+    + rewrite H in H5. discriminate H5.
+    + apply IHE1 in H6. assumption.
+    + rewrite H in H5. discriminate H5.
+  - (* E_IfError *)
+    inversion E2; subst.
+    + rewrite H in H5. discriminate H5.
+    + rewrite H in H5. discriminate H5.
+    + reflexivity.
+  - (* E_WhileFalse *)
+    inversion E2; subst.
+    + reflexivity.
+    + rewrite H in H3. discriminate H3.
+    + rewrite H in H4. discriminate H4.
+    + rewrite H in H3. discriminate H3.
+  - (* E_WhileTrue *)
+    inversion E2;subst.
+    + rewrite H in H4. discriminate H4.
+    + apply IHE1_1 in H4. rewrite <- H4 in *. apply IHE1_2 in H6. assumption.
+    + rewrite H in H4. discriminate H4.
+    + apply IHE1_1 in H5. discriminate H5.
+  - (* E_WhileGuardError *)
+    inversion E2; subst.
+    + rewrite H in H4. discriminate H4.
+    + rewrite H in H3. discriminate H3.
+    + reflexivity.
+    + reflexivity.
+  - (* E_BodyError *)
+    inversion E2; subst.
+    + rewrite H in H4. discriminate H4.
+    + apply IHE1 in H4. discriminate H4.
+    + reflexivity.
+    + reflexivity.
+Qed.
+
+Theorem ceval_sound : forall c st ,
+  (exists st', SNormal st =[ c ]=> SNormal st') \/ SNormal st =[ c ]=> SError.
+Proof.
+  intros c.
+  induction c; intros.
+  - (* CSkip *) 
+    left. exists st. apply E_Skip.
+  - (* CAsgn *)
+    destruct (aeval st a) eqn:Eq.
+    + left. exists (x !-> Some z ; st). apply E_Asgn. assumption.
+    + right. apply E_AsgnError. assumption.
+  - (* CSeq *)
+    destruct (IHc1 st).
+    + (* C1 progresses normally *)
+      destruct H as [st' H1]. destruct (IHc2 st').
+      * (* C2 progress normally *) 
+        left. destruct H as [st'0 H2]. exists st'0. apply E_Seq with (st' := st'); assumption.
+      * (* C2 errors *)
+        right.

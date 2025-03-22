@@ -1,4 +1,7 @@
 - [x] Extend `Imp` to integers.
 - [ ] Extend `Imp` to use partial maps as states, introducing error for undefined variables
+- [ ] Define `terminates`
 - [ ] Formalize trace semantics of `Imp`
-- [ ] Formalize abstract domains
+- [ ] Formalize numerical abstract domain
+- [ ] Formalize termination checker `check_abs_terminates`
+- [ ] Show that forall ZImp program `p`, `check_abs_terminates(p) -> terminates(p)`
