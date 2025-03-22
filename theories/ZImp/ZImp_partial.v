@@ -218,6 +218,13 @@ Inductive ceval : com -> result -> result -> Prop :=
     SNormal st  =[ c1 ]=> SNormal st'  ->
     SNormal st' =[ c2 ]=> SNormal st'' ->
     SNormal st  =[ c1 ; c2 ]=> SNormal st''
+  | E_SeqError1 : forall c1 c2 st,
+    SNormal st =[ c1 ]=> SError ->
+    SNormal st  =[ c1 ; c2 ]=> SError
+  | E_SeqError2 : forall c1 c2 st st',
+    SNormal st =[ c1 ]=> SNormal st' ->
+    SNormal st' =[ c2 ]=> SError ->
+    SNormal st  =[ c1 ; c2 ]=> SError
   | E_IfTrue : forall st st' b c1 c2,
     beval st b = BNormal true ->
     SNormal st =[ c1 ]=> SNormal st' ->
@@ -229,9 +236,18 @@ Inductive ceval : com -> result -> result -> Prop :=
   | E_IfError : forall st b c1 c2,
     beval st b = BError ->
     SNormal st =[ if b then c1 else c2 end ]=> SError
-  | E_WhileFalse : forall b st c,
+  | E_IfErrorTrue : forall st b c1 c2,
+    beval st b = BNormal true ->
+    SNormal st =[ c1 ]=> SError ->
+    SNormal st =[ if b then c1 else c2 end ]=> SError
+  | E_IfErrorFalse : forall st b c1 c2,
     beval st b = BNormal false ->
-    SNormal st =[ while b do c end ]=> SNormal st
+    SNormal st =[ c2 ]=> SError ->
+    SNormal st =[ if b then c1 else c2 end ]=> SError
+  | E_WhileFalse : forall b result st c,  (* this seems like a sloppy version... *)
+    beval st b = BNormal false ->
+    result = SNormal st ->
+    result =[ while b do c end ]=> result
   | E_WhileTrue : forall st st' st'' b c,
     beval st b = BNormal true ->
     SNormal st  =[ c ]=> SNormal st' ->
@@ -240,8 +256,7 @@ Inductive ceval : com -> result -> result -> Prop :=
   | E_WhileGuardError : forall st b c,
     beval st b = BError ->
     SNormal st =[ while b do c end]=> SError
-  | E_BodyError : forall st b c,
-    beval st b = BNormal true ->
+  | E_WhileBodyError : forall st b c,
     SNormal st =[ c ]=> SError ->
     SNormal st  =[ while b do c end ]=> SError
 
@@ -268,29 +283,51 @@ Proof.
     + rewrite H in H4. discriminate H4.
     + reflexivity.
   - (* E_Seq *)
-    inversion E2. subst. apply IHE1_2. apply IHE1_1 in H2. rewrite <- H2 in H4.
-    assumption.
+    inversion E2;subst.
+    + apply IHE1_2. apply IHE1_1 in H2. rewrite <- H2 in H4. assumption.
+    + apply IHE1_1 in H3. rewrite H3 in E1_2. inversion E1_2.
+    + apply IHE1_1 in H2. rewrite <- H2 in H4. apply IHE1_2 in H4. assumption.
+  - (* E_SeqError1 *)
+    inversion E2; subst.
+    + apply IHE1 in H2. discriminate H2.
+    + reflexivity.
+    + reflexivity.
+  - (* E_SeqError2 *)
+    inversion E2; subst.
+    + apply IHE1_1 in H2. rewrite <- H2 in H4. apply IHE1_2 in H4. discriminate H4.
+    + reflexivity.
+    + reflexivity.
   - (* E_IfTrue *)
     inversion E2; subst.
     + apply IHE1 in H6. assumption.
     + rewrite H in H5. discriminate H5.
     + rewrite H in H5. discriminate H5.
+    + apply IHE1 in H6. assumption.
+    + rewrite H in H5. discriminate H5. 
   - (* E_IfFalse *)
     inversion E2; subst.
     + rewrite H in H5. discriminate H5.
     + apply IHE1 in H6. assumption.
     + rewrite H in H5. discriminate H5.
+    + rewrite H in H5. discriminate H5.
+    + apply IHE1 in H6. discriminate H6.
   - (* E_IfError *)
     inversion E2; subst.
     + rewrite H in H5. discriminate H5.
     + rewrite H in H5. discriminate H5.
     + reflexivity.
+    + reflexivity.
+    + reflexivity.
+  - (* E_IfErrorTrue *)
+    inversion E2; subst; auto. rewrite H in H5. discriminate H5.
+  - (* E_IfErrorFalse *)
+    inversion E2; subst; auto. rewrite H in H5. discriminate H5.
   - (* E_WhileFalse *)
     inversion E2; subst.
     + reflexivity.
     + rewrite H in H3. discriminate H3.
     + rewrite H in H4. discriminate H4.
-    + rewrite H in H3. discriminate H3.
+    + inversion H4; subst.
   - (* E_WhileTrue *)
     inversion E2;subst.
     + rewrite H in H4. discriminate H4.
@@ -303,7 +340,7 @@ Proof.
     + rewrite H in H3. discriminate H3.
     + reflexivity.
     + reflexivity.
-  - (* E_BodyError *)
+  - (* E_WhileBodyError *)
     inversion E2; subst.
     + rewrite H in H4. discriminate H4.
     + apply IHE1 in H4. discriminate H4.
@@ -324,9 +361,38 @@ Proof.
     + right. apply E_AsgnError. assumption.
   - (* CSeq *)
     destruct (IHc1 st).
-    + (* C1 progresses normally *)
+    + (* C1 evals normally *)
       destruct H as [st' H1]. destruct (IHc2 st').
-      * (* C2 progress normally *) 
+      * (* C2 evals normally *) 
         left. destruct H as [st'0 H2]. exists st'0. apply E_Seq with (st' := st'); assumption.
       * (* C2 errors *)
-        right.
+        right. apply E_SeqError2 with (c2 := c2) in H1; assumption.
+    + (* C2 errors *)
+      right. apply E_SeqError1. assumption.
+  - (* CIf *)
+    destruct (beval st b) eqn:Eqb.
+    + destruct b0.
+        * destruct (IHc1 st). destruct H as [st' H].
+          ** (* C1 evals normally *)
+             left. exists st'. apply E_IfTrue; assumption.
+          ** (* C1 errors *)
+             right. apply E_IfErrorTrue; assumption.
+        * destruct (IHc1 st). 
+          ** destruct H as [st' H]. destruct (IHc2 st).
+             *** (* C2 evals normally*)
+                 destruct H0 as [st'0 H1]. left. exists st'0. apply E_IfFalse; assumption.
+             *** (* C2 errors *)
+                 right. apply E_IfErrorFalse; assumption.
+          ** destruct (IHc2 st).
+             *** (* C2 evals normally *)
+                 destruct H0 as [st'0 H1]. left. exists st'0. apply E_IfFalse; assumption.
+             *** (* C2 errors *)
+                 right. apply E_IfErrorFalse; assumption.
+    + right. apply E_IfError. assumption.
+  - (* CWhile *)
+    destruct (beval st b) eqn:Eqb.
+    + destruct b0.
+      * admit.
+      * destruct (IHc st).
+        ** destruct H. left. exists st. apply E_WhileFalse. assumption.
+        ** right. apply E_WhileBodyError.
