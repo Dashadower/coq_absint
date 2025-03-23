@@ -244,10 +244,9 @@ Inductive ceval : com -> result -> result -> Prop :=
     beval st b = BNormal false ->
     SNormal st =[ c2 ]=> SError ->
     SNormal st =[ if b then c1 else c2 end ]=> SError
-  | E_WhileFalse : forall b result st c,  (* this seems like a sloppy version... *)
+  | E_WhileFalse : forall b st c,
     beval st b = BNormal false ->
-    result = SNormal st ->
-    result =[ while b do c end ]=> result
+    SNormal st =[ while b do c end ]=> SNormal st
   | E_WhileTrue : forall st st' st'' b c,
     beval st b = BNormal true ->
     SNormal st  =[ c ]=> SNormal st' ->
@@ -257,6 +256,7 @@ Inductive ceval : com -> result -> result -> Prop :=
     beval st b = BError ->
     SNormal st =[ while b do c end]=> SError
   | E_WhileBodyError : forall st b c,
+    beval st b = BNormal true ->
     SNormal st =[ c ]=> SError ->
     SNormal st  =[ while b do c end ]=> SError
 
@@ -327,7 +327,7 @@ Proof.
     + reflexivity.
     + rewrite H in H3. discriminate H3.
     + rewrite H in H4. discriminate H4.
-    + inversion H4; subst.
+    + rewrite H in H3. discriminate H3.
   - (* E_WhileTrue *)
     inversion E2;subst.
     + rewrite H in H4. discriminate H4.
@@ -348,7 +348,7 @@ Proof.
     + reflexivity.
 Qed.
 
-Theorem ceval_sound : forall c st ,
+Theorem ceval_sound_fail : forall c st ,
   (exists st', SNormal st =[ c ]=> SNormal st') \/ SNormal st =[ c ]=> SError.
 Proof.
   intros c.
@@ -392,7 +392,8 @@ Proof.
   - (* CWhile *)
     destruct (beval st b) eqn:Eqb.
     + destruct b0.
-      * admit.
-      * destruct (IHc st).
-        ** destruct H. left. exists st. apply E_WhileFalse. assumption.
-        ** right. apply E_WhileBodyError.
+      * (* true *) 
+        destruct (IHc st).
+        ** (* c evals normally *)
+           destruct H as [st' H].
+           Abort. (* big-step semantics does not allow us to reason about non-termination!! *)
