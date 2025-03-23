@@ -1,7 +1,10 @@
 COQMODULE    := AbsInt
-COQTHEORIES  := \
-	theories/*.v \
-	theories/domains/*.v \
+# COQTHEORIES  := \
+# 	theories/*.v \
+# 	theories/domains/*.v \
+# 	theories/ZImp/*.v \
+
+COQTHEORIES := $(shell find theories -name "*.v")
 
 all: Makefile.coq
 	@+$(MAKE) -f Makefile.coq all
