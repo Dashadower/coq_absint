@@ -3,6 +3,7 @@ From AbsInt.ZImp Require Import ZImp_partial.
 From AbsInt Require Import Maps.
 From Coq Require Import ZArith.
 From Coq Require Import Nat.
+From Coq Require Import Lia.
 
 Inductive ceval_func_result : Type :=
   | CFTerminates (st : ceval_result)
@@ -53,32 +54,73 @@ Fixpoint ceval_func (st : ceval_result) (c : com) (fuel : nat) : ceval_func_resu
     end
   end.
 
-Definition W : string := "W".
-Definition X : string := "X".
-Definition Y : string := "Y".
-Definition Z : string := "Z".
+
+Lemma ceval_func_step_more: forall f1 f2 st st' c,
+  (f1 <= f2)%nat -> ceval_func st c f1 = CFTerminates st' -> ceval_func st c f2 = CFTerminates st'.
+Proof.
+  intros f1.
+  induction f1 as [|f1']; intros f2 st st' c Hle Hceval.
+  - simpl in Hceval. discriminate Hceval.
+  - destruct f2.
+    + inversion Hle.
+    + assert (Hle': (f1' <= f2)%nat) by lia.
+      destruct c.
+      * simpl in Hceval. simpl. assumption.
+      * inversion Hceval. simpl. reflexivity.
+      * destruct (ceval_func st c1 f1') eqn:Eqcf.
+        ** apply (IHf1' f2) in Eqcf as Eqcf2; try assumption. simpl in Hceval.
+           rewrite Eqcf in Hceval.
+           
+           destruct st eqn:Eqst.
+           *** simpl. rewrite Eqcf2. apply (IHf1' f2) in Hceval; assumption.
+           *** simpl. assumption.
+        ** destruct st eqn:Eqst.
+           *** simpl in Hceval. rewrite Eqcf in Hceval. discriminate Hceval.
+           *** simpl in Hceval. simpl. assumption.
+      * destruct st eqn:Eqst.
+        ** destruct (beval st0 b) eqn:Eqb.
+           *** simpl in Hceval. destruct b0.
+               **** rewrite Eqb in Hceval. apply (IHf1' f2) in Hceval; try assumption.
+                    simpl. rewrite Eqb. assumption.
+               **** rewrite Eqb in Hceval. apply (IHf1' f2) in Hceval; try assumption.
+                    simpl. rewrite Eqb. assumption.
+           *** simpl in Hceval. rewrite Eqb in Hceval. simpl. rewrite Eqb. assumption.
+        ** simpl in Hceval. simpl. assumption.
+      * destruct st eqn:Eqst.
+        ** destruct (beval st0 b) eqn:Eqb.
+           *** simpl in Hceval. destruct b0.
+               **** rewrite Eqb in Hceval. destruct (ceval_func (CNormal st0) c f1') eqn:Eqce.
+                    ***** apply (IHf1' f2) in Hceval; try assumption. simpl. rewrite Eqb.
+                          apply (IHf1' f2) in Eqce; try assumption. rewrite Eqce. assumption.
+                    ***** discriminate Hceval.
+               **** rewrite Eqb in Hceval. simpl. rewrite Eqb. assumption.
+           *** simpl. rewrite Eqb. simpl in Hceval. rewrite Eqb in Hceval. assumption.
+        ** simpl. simpl in Hceval. assumption.
+Qed. 
+           
+
+Theorem ceval_implies_ceval_func: forall c st st',
+  st =[ c ]=> st' -> exists fuel, ceval_func st c fuel = CFTerminates st'.
+Proof.
+  intros c st st'.
+  intros H.
+  induction H; subst.
+  - exists 1%nat. simpl. reflexivity.
+  - exists 1%nat. simpl. rewrite H. reflexivity.
+  - exists 1%nat. simpl. rewrite H. reflexivity.
+  - destruct IHceval1. destruct IHceval2. exists (add x x0).
+    destruct x.
+    + simpl in *. discriminate H1.
+    + simpl. destruct x0.
+      * simpl in H2. discriminate H2.
+      * simpl.
+      
+      
+    
 
 
-(* Notation "x '|->' v ';' m" := (update m x v)
-  (at level 100, v at next level, right associativity).
-
-(** We can also hide the last case when it is empty. *)
-Notation "x '|->' v" := (update empty x v)
-  (at level 100). *)
-
-Definition examplepmap :=
-  ("Church" |-> 1 ; "Turing" |-> 2).
-
-Print examplepmap.
-
-Compute update examplepmap "Curry" 2.
-
-Definition test_prog : com := <{
-  X := 1 ;
-  Y := 2 ;
-  while Y > X do
-  X := X + 0
-  end
-  }>.
-
-Compute ceval_func (CNormal empty_st) test_prog 100.
+Theorem ceval_func_and_ceval_coincide: forall c st st',
+  st =[ c ]=> st' <-> exists fuel, ceval_func st c fuel = CFTerminates st'.
+Proof.
+  intros c.
+  split.
