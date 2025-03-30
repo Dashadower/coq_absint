@@ -96,7 +96,7 @@ Definition i2 := Interval (Znum (-5)) Zposinf.
 Compute IntDomain_Orderb i1 i2.
 
 
-Instance IntervalAbstractDomain : AbstractDomain IntervalDomain ZInf := {
+(* Instance IntervalAbstractDomain : AbstractDomain IntervalDomain ZInf := {
   bottom := Bottom;
   join := IntervalDomain_Join;
   order := IntervalDomain_Order;
@@ -104,4 +104,4 @@ Instance IntervalAbstractDomain : AbstractDomain IntervalDomain ZInf := {
   order_refl := IntervalDomain_order_refl;
   order_trans := IntervalDomain_order_trans;
   order_antisym := IntervalDomain_order_antisymm;
-}.
+}. *)

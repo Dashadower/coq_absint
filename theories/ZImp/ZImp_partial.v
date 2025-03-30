@@ -60,11 +60,10 @@ Definition empty_st := empty (A := Z).
 Print empty_st.
 
 Definition state := partial_map Z.
-Notation "x '!->' v" := (x !-> v ; empty_st) (at level 100).
 
-Inductive result : Type :=
-  | SNormal (st : state)
-  | SError.
+Inductive ceval_result : Type :=
+  | CNormal (st : state)
+  | CError.
 
 Inductive aeval_result : Type :=
   | ANormal (z : Z)
@@ -205,60 +204,60 @@ Reserved Notation
   (at level 40, c custom com at level 99,
     st constr, st' constr at next level).
 
-Inductive ceval : com -> result -> result -> Prop :=
+Inductive ceval : com -> ceval_result -> ceval_result -> Prop :=
   | E_Skip : forall st,
-    SNormal st =[ skip ]=> SNormal st
+    CNormal st =[ skip ]=> CNormal st
   | E_Asgn : forall st a n x,
     aeval st a = ANormal n ->
-    SNormal st =[ x := a ]=> SNormal (x !-> Some n ; st)
+    CNormal st =[ x := a ]=> CNormal (x |-> n ; st)
   | E_AsgnError : forall st a x,
     aeval st a = AError ->
-    SNormal st =[x := a]=> SError
+    CNormal st =[x := a]=> CError
   | E_Seq : forall c1 c2 st st' st'',
-    SNormal st  =[ c1 ]=> SNormal st'  ->
-    SNormal st' =[ c2 ]=> SNormal st'' ->
-    SNormal st  =[ c1 ; c2 ]=> SNormal st''
+    CNormal st  =[ c1 ]=> CNormal st'  ->
+    CNormal st' =[ c2 ]=> CNormal st'' ->
+    CNormal st  =[ c1 ; c2 ]=> CNormal st''
   | E_SeqError1 : forall c1 c2 st,
-    SNormal st =[ c1 ]=> SError ->
-    SNormal st  =[ c1 ; c2 ]=> SError
+    CNormal st =[ c1 ]=> CError ->
+    CNormal st  =[ c1 ; c2 ]=> CError
   | E_SeqError2 : forall c1 c2 st st',
-    SNormal st =[ c1 ]=> SNormal st' ->
-    SNormal st' =[ c2 ]=> SError ->
-    SNormal st  =[ c1 ; c2 ]=> SError
+    CNormal st =[ c1 ]=> CNormal st' ->
+    CNormal st' =[ c2 ]=> CError ->
+    CNormal st  =[ c1 ; c2 ]=> CError
   | E_IfTrue : forall st st' b c1 c2,
     beval st b = BNormal true ->
-    SNormal st =[ c1 ]=> SNormal st' ->
-    SNormal st =[ if b then c1 else c2 end]=> SNormal st'
+    CNormal st =[ c1 ]=> CNormal st' ->
+    CNormal st =[ if b then c1 else c2 end]=> CNormal st'
   | E_IfFalse : forall st st' b c1 c2,
     beval st b = BNormal false ->
-    SNormal st =[ c2 ]=> SNormal st' ->
-    SNormal st =[ if b then c1 else c2 end]=> SNormal st'
+    CNormal st =[ c2 ]=> CNormal st' ->
+    CNormal st =[ if b then c1 else c2 end]=> CNormal st'
   | E_IfError : forall st b c1 c2,
     beval st b = BError ->
-    SNormal st =[ if b then c1 else c2 end ]=> SError
+    CNormal st =[ if b then c1 else c2 end ]=> CError
   | E_IfErrorTrue : forall st b c1 c2,
     beval st b = BNormal true ->
-    SNormal st =[ c1 ]=> SError ->
-    SNormal st =[ if b then c1 else c2 end ]=> SError
+    CNormal st =[ c1 ]=> CError ->
+    CNormal st =[ if b then c1 else c2 end ]=> CError
   | E_IfErrorFalse : forall st b c1 c2,
     beval st b = BNormal false ->
-    SNormal st =[ c2 ]=> SError ->
-    SNormal st =[ if b then c1 else c2 end ]=> SError
+    CNormal st =[ c2 ]=> CError ->
+    CNormal st =[ if b then c1 else c2 end ]=> CError
   | E_WhileFalse : forall b st c,
     beval st b = BNormal false ->
-    SNormal st =[ while b do c end ]=> SNormal st
+    CNormal st =[ while b do c end ]=> CNormal st
   | E_WhileTrue : forall st st' st'' b c,
     beval st b = BNormal true ->
-    SNormal st  =[ c ]=> SNormal st' ->
-    SNormal st' =[ while b do c end ]=> SNormal st'' ->
-    SNormal st  =[ while b do c end ]=> SNormal st''
+    CNormal st  =[ c ]=> CNormal st' ->
+    CNormal st' =[ while b do c end ]=> CNormal st'' ->
+    CNormal st  =[ while b do c end ]=> CNormal st''
   | E_WhileGuardError : forall st b c,
     beval st b = BError ->
-    SNormal st =[ while b do c end]=> SError
+    CNormal st =[ while b do c end]=> CError
   | E_WhileBodyError : forall st b c,
     beval st b = BNormal true ->
-    SNormal st =[ c ]=> SError ->
-    SNormal st  =[ while b do c end ]=> SError
+    CNormal st =[ c ]=> CError ->
+    CNormal st  =[ while b do c end ]=> CError
 
 
   where "st =[ c ]=> st'" := (ceval c st st').
@@ -349,7 +348,7 @@ Proof.
 Qed.
 
 Theorem ceval_sound_fail : forall c st ,
-  (exists st', SNormal st =[ c ]=> SNormal st') \/ SNormal st =[ c ]=> SError.
+  (exists st', CNormal st =[ c ]=> CNormal st') \/ CNormal st =[ c ]=> CError.
 Proof.
   intros c.
   induction c; intros.
@@ -357,7 +356,7 @@ Proof.
     left. exists st. apply E_Skip.
   - (* CAsgn *)
     destruct (aeval st a) eqn:Eq.
-    + left. exists (x !-> Some z ; st). apply E_Asgn. assumption.
+    + left. exists (x |-> z ; st). apply E_Asgn. assumption.
     + right. apply E_AsgnError. assumption.
   - (* CSeq *)
     destruct (IHc1 st).
