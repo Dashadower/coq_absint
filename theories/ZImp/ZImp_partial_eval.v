@@ -96,8 +96,7 @@ Proof.
                **** rewrite Eqb in Hceval. simpl. rewrite Eqb. assumption.
            *** simpl. rewrite Eqb. simpl in Hceval. rewrite Eqb in Hceval. assumption.
         ** simpl. simpl in Hceval. assumption.
-Qed. 
-           
+Qed.
 
 Theorem ceval_implies_ceval_func: forall c st st',
   st =[ c ]=> st' -> exists fuel, ceval_func st c fuel = CFTerminates st'.
@@ -113,10 +112,56 @@ Proof.
     + simpl in *. discriminate H1.
     + simpl. destruct x0.
       * simpl in H2. discriminate H2.
-      * simpl.
-      
-      
-    
+      * apply ceval_func_step_more with (f2 := (x + S x0)%nat) in H1.
+        ** rewrite H1. apply ceval_func_step_more with (f2 := (x + S x0)%nat) in H2.
+           *** assumption.
+           *** lia.
+        ** lia.
+  - destruct IHceval. exists (S x). destruct x.
+    + simpl in H0. discriminate H0.
+    + simpl in *. rewrite H0. reflexivity.
+  - destruct IHceval1. destruct IHceval2. exists (S (x + x0))%nat.
+    simpl. apply ceval_func_step_more with (f2 := (x + x0)%nat)in H1; try lia.
+    rewrite H1. apply ceval_func_step_more with (f2 := (x + x0)%nat)in H2; try lia.
+    assumption.
+  - destruct IHceval. exists (S x). destruct x.
+    + simpl in H1. discriminate H1.
+    + simpl. simpl in H1. rewrite H1. rewrite H. reflexivity.
+  - destruct IHceval. exists (S x). destruct x.
+    + simpl in H1. discriminate H1.
+    + simpl. simpl in H1. rewrite H1. rewrite H. reflexivity.
+  - exists 1%nat. simpl. rewrite H. reflexivity.
+  - destruct IHceval. exists (S x). simpl. rewrite H. assumption.
+  - destruct IHceval. exists (S x). simpl. rewrite H. assumption.
+  - exists 1%nat. simpl. rewrite H. reflexivity.
+  - destruct IHceval1. destruct IHceval2. exists (S (x + x0)%nat).
+    simpl. rewrite H. apply ceval_func_step_more with (f2 := (x + x0)%nat) in H2; try lia.
+    rewrite H2. apply ceval_func_step_more with (f2 := (x + x0)%nat) in H3; try lia.
+    assumption.
+  - exists 1%nat. simpl. rewrite H. reflexivity.
+  - destruct IHceval. exists (S x). simpl. rewrite H. rewrite H1. destruct x.
+    + simpl in H1. discriminate H1.
+    + simpl. reflexivity.
+Qed.
+
+Theorem ceval_fun_implies_ceval: forall c st st',
+  (exists fuel, ceval_func st c fuel = CFTerminates st') -> st =[ c ]=> st'.
+Proof.
+  intros c st st' H. destruct H as [fuel H].
+  generalize dependent st'.
+  generalize dependent st.
+  generalize dependent c.
+  induction fuel.
+  - intros. simpl in H. discriminate H.
+  - intros. destruct c.
+    + inversion H. destruct st.
+      * inversion H1. apply E_Skip.
+      * inversion H1. admit. (* CError =[ skip ]=> CError *)
+    + destruct st.
+      * destruct (aeval st a) eqn:Eqa.
+        ** simpl in H. rewrite Eqa in H. inversion H. apply E_Asgn. assumption.
+        ** simpl in H. rewrite Eqa in H. inversion H. apply E_AsgnError. assumption.
+      * 
 
 
 Theorem ceval_func_and_ceval_coincide: forall c st st',
@@ -124,3 +169,5 @@ Theorem ceval_func_and_ceval_coincide: forall c st st',
 Proof.
   intros c.
   split.
+  - apply ceval_implies_ceval_func.
+  - 
