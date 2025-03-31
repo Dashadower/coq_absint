@@ -258,7 +258,11 @@ Inductive ceval : com -> ceval_result -> ceval_result -> Prop :=
     beval st b = BNormal true ->
     CNormal st =[ c ]=> CError ->
     CNormal st  =[ while b do c end ]=> CError
-
+  (* | E_WhileBodyUnrollError : forall st st' b c,
+    beval st b = BNormal true ->
+    CNormal st =[ c ]=> CNormal st' ->
+    CNormal st' =[ while b do c end ]=> CError ->
+    CNormal st =[ while b do c end]=> CError *)
 
   where "st =[ c ]=> st'" := (ceval c st st').
 

@@ -99,7 +99,7 @@ Proof.
 Qed.
 
 Theorem ceval_implies_ceval_func: forall c st st',
-  st =[ c ]=> st' -> exists fuel, ceval_func st c fuel = CFTerminates st'.
+  CNormal st =[ c ]=> st' -> exists fuel, ceval_func (CNormal st) c fuel = CFTerminates st'.
 Proof.
   intros c st st'.
   intros H.
@@ -145,7 +145,7 @@ Proof.
 Qed.
 
 Theorem ceval_fun_implies_ceval: forall c st st',
-  (exists fuel, ceval_func st c fuel = CFTerminates st') -> st =[ c ]=> st'.
+  (exists fuel, ceval_func (CNormal st) c fuel = CFTerminates st') -> (CNormal st) =[ c ]=> st'.
 Proof.
   intros c st st' H. destruct H as [fuel H].
   generalize dependent st'.
@@ -154,14 +154,46 @@ Proof.
   induction fuel.
   - intros. simpl in H. discriminate H.
   - intros. destruct c.
-    + inversion H. destruct st.
-      * inversion H1. apply E_Skip.
-      * inversion H1. admit. (* CError =[ skip ]=> CError *)
-    + destruct st.
-      * destruct (aeval st a) eqn:Eqa.
-        ** simpl in H. rewrite Eqa in H. inversion H. apply E_Asgn. assumption.
-        ** simpl in H. rewrite Eqa in H. inversion H. apply E_AsgnError. assumption.
-      * 
+    + inversion H. apply E_Skip.
+    + destruct (aeval st a) eqn:Eqa.
+      * simpl in H. rewrite Eqa in H. inversion H. apply E_Asgn. assumption.
+      * simpl in H. rewrite Eqa in H. inversion H. apply E_AsgnError. assumption.
+    + simpl in H. destruct (ceval_func (CNormal st) c1 fuel) eqn:Eqc.
+      * apply IHfuel in Eqc. destruct st0 eqn:Eqs.
+        ** apply IHfuel in H. destruct st' eqn:Eqs'.
+           *** apply E_Seq with (c2 := c2) (st' := st1) (st'' := st2) in Eqc; assumption.
+           *** apply E_SeqError2 with (st' := st1); assumption.
+        ** destruct st' eqn:Eqs'.
+           *** destruct fuel.
+               **** simpl in H. discriminate H.
+               **** simpl in H. discriminate H.
+           *** apply E_SeqError1. assumption.
+      * discriminate H.
+    + simpl in H. destruct (beval st b) eqn:Eqb.
+      * destruct b0 eqn:Eqb'.
+        ** apply IHfuel in H. destruct st' eqn:Eqst'.
+           *** apply E_IfTrue; assumption.
+           *** apply E_IfErrorTrue; assumption.
+        ** apply IHfuel in H. destruct st' eqn:Eqst'.
+           *** apply E_IfFalse; assumption.
+           *** apply E_IfErrorFalse; assumption.
+      * destruct st' eqn:Eqst'.
+        ** discriminate H.
+        ** apply E_IfError. assumption.
+    + simpl in H. destruct (beval st b) eqn:Eqb.
+      * (* beval st b = BNormal b0 *) destruct b0 eqn:Eqb'.
+        -- (* beval st b = BNormal true*) destruct (ceval_func (CNormal st) c fuel) eqn:Eqc.
+           ++ (* ceval_func (CNormal st) c fuel = CFTerminates st0 *) 
+               destruct st0 eqn:Eqs.
+               ** apply IHfuel in H. apply IHfuel in Eqc. 
+                  --- destruct st'.
+                      +++ apply E_WhileTrue with (st' := st1); assumption.
+                      +++ 
+               ** apply IHfuel in Eqc as Eqc'. destruct st'.
+                  --- destruct fuel; simpl in H; discriminate H.
+                  --- apply E_WhileBodyError; assumption.
+                          
+
 
 
 Theorem ceval_func_and_ceval_coincide: forall c st st',
