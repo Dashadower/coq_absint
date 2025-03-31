@@ -258,11 +258,11 @@ Inductive ceval : com -> ceval_result -> ceval_result -> Prop :=
     beval st b = BNormal true ->
     CNormal st =[ c ]=> CError ->
     CNormal st  =[ while b do c end ]=> CError
-  (* | E_WhileBodyUnrollError : forall st st' b c,
+  | E_WhileBodyUnrollError : forall st st' b c,
     beval st b = BNormal true ->
     CNormal st =[ c ]=> CNormal st' ->
     CNormal st' =[ while b do c end ]=> CError ->
-    CNormal st =[ while b do c end]=> CError *)
+    CNormal st =[ while b do c end]=> CError
 
   where "st =[ c ]=> st'" := (ceval c st st').
 
@@ -331,22 +331,34 @@ Proof.
     + rewrite H in H3. discriminate H3.
     + rewrite H in H4. discriminate H4.
     + rewrite H in H3. discriminate H3.
+    + rewrite H in H3. discriminate H3.
   - (* E_WhileTrue *)
     inversion E2;subst.
     + rewrite H in H4. discriminate H4.
     + apply IHE1_1 in H4. rewrite <- H4 in *. apply IHE1_2 in H6. assumption.
     + rewrite H in H4. discriminate H4.
     + apply IHE1_1 in H5. discriminate H5.
+    + apply IHE1_1 in H4. injection H4. intros. rewrite <- H0 in H6. apply IHE1_2 in H6.
+      discriminate H6.
   - (* E_WhileGuardError *)
     inversion E2; subst.
     + rewrite H in H4. discriminate H4.
     + rewrite H in H3. discriminate H3.
     + reflexivity.
     + reflexivity.
+    + reflexivity.
   - (* E_WhileBodyError *)
     inversion E2; subst.
     + rewrite H in H4. discriminate H4.
     + apply IHE1 in H4. discriminate H4.
+    + reflexivity.
+    + reflexivity.
+    + reflexivity.
+  - (* E_WhileBodyUnrollError *)
+    inversion E2; subst.
+    + rewrite H in H4. discriminate H4.
+    + apply IHE1_1 in H4. rewrite <- H4 in *. apply IHE1_2 in H6. assumption.
+    + rewrite H in H4. discriminate H4.
     + reflexivity.
     + reflexivity.
 Qed.

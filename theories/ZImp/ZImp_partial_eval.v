@@ -142,6 +142,10 @@ Proof.
   - destruct IHceval. exists (S x). simpl. rewrite H. rewrite H1. destruct x.
     + simpl in H1. discriminate H1.
     + simpl. reflexivity.
+  - destruct IHceval1. destruct IHceval2. exists (S (x + x0)%nat). simpl.
+    rewrite H. apply ceval_func_step_more with (f2 := (x + x0)%nat) in H2; try lia.
+    rewrite H2. apply ceval_func_step_more with (f2 := (x + x0)%nat) in H3; try lia.
+    assumption.
 Qed.
 
 Theorem ceval_fun_implies_ceval: forall c st st',
@@ -186,20 +190,32 @@ Proof.
            ++ (* ceval_func (CNormal st) c fuel = CFTerminates st0 *) 
                destruct st0 eqn:Eqs.
                ** apply IHfuel in H. apply IHfuel in Eqc. 
-                  --- destruct st'.
-                      +++ apply E_WhileTrue with (st' := st1); assumption.
-                      +++ 
+                  destruct st'.
+                  --- apply E_WhileTrue with (st' := st1); assumption.
+                  --- apply E_WhileBodyUnrollError with (st' := st1); assumption. 
                ** apply IHfuel in Eqc as Eqc'. destruct st'.
                   --- destruct fuel; simpl in H; discriminate H.
                   --- apply E_WhileBodyError; assumption.
-                          
+           ++ discriminate H.
+        -- injection H. intros. rewrite <- H0. apply E_WhileFalse. assumption.
+      * injection H. intros. rewrite <- H0. apply E_WhileGuardError. assumption.
+Qed. 
 
+
+(*
+There exists some fuel value for ceval_func such that,
+starting execution from a normal program state st,
+ceval_func terminates with some execution result st',
+if and only c can reduce to st' starting from a normal program state st by
+the defined big-step semantics relation.
+*)
 
 
 Theorem ceval_func_and_ceval_coincide: forall c st st',
-  st =[ c ]=> st' <-> exists fuel, ceval_func st c fuel = CFTerminates st'.
+  CNormal st =[ c ]=> st' <-> exists fuel, ceval_func (CNormal st) c fuel = CFTerminates st'.
 Proof.
   intros c.
   split.
   - apply ceval_implies_ceval_func.
-  - 
+  - apply ceval_fun_implies_ceval.
+Qed.
