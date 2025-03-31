@@ -203,10 +203,11 @@ Qed.
 
 
 (*
-There exists some fuel value for ceval_func such that,
+For all ZImp_partial program c, program state st, evaluation result st',
+there exists some fuel value for ceval_func such that,
 starting execution from a normal program state st,
 ceval_func terminates with some execution result st',
-if and only c can reduce to st' starting from a normal program state st by
+if and only if c can reduce to st' starting from a normal program state st by
 the defined big-step semantics relation.
 *)
 
@@ -219,3 +220,9 @@ Proof.
   - apply ceval_implies_ceval_func.
   - apply ceval_fun_implies_ceval.
 Qed.
+
+
+(* ***************************** *)
+
+Definition program_terminates: forall c initial_state c_result,
+  exists fuel, ceval_func (CNormal initial_state) c fuel = CFTerminates c_result.

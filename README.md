@@ -1,8 +1,8 @@
 - [x] Extend `Imp` to integers.
-- [ ] Extend `Imp` to use partial maps as states, introducing error for undefined variables
-- [ ] Use Coq stdlib's partial map to represent state instead of SF's version
-- [ ] Make a fuel-based concrete interpreter for ZImp_partial.
-- [ ] Define `terminates`
+- [x] Extend `Imp` to use partial maps as states, introducing error for undefined variables
+- [ ] ~~Use Coq stdlib's partial map to represent state instead of SF's function version~~ On hold until I find a better alternative that is not too complex.
+- [x] Make a fuel-based concrete interpreter for ZImp_partial, with correspondence proof to ZImp_partial's bigstep semantics.
+- [x] Define `terminates`
 - [ ] Formalize trace semantics of `Imp`
 - [ ] Formalize numerical abstract domain
 - [ ] Formalize termination checker `check_abs_terminates`
