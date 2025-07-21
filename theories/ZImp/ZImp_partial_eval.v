@@ -224,5 +224,5 @@ Qed.
 
 (* ***************************** *)
 
-(* Definition program_terminates: forall c initial_state c_result,
-  exists fuel, ceval_func (CNormal initial_state) c fuel = CFTerminates c_result. *)
+Definition program_terminates: forall c initial_state c_result,
+  exists fuel, ceval_func (CNormal initial_state) c fuel = CFTerminates c_result.
