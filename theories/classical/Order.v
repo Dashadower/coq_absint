@@ -188,32 +188,21 @@ f : E -> F
 assuming that E and F are CPOs, we say that f is continuous 
 if and only if the image of any chain G of E by f has a least upper bound, 
 that is, such that ⊔{f(x) | x ∈ G} = f(⊔G).
+
+A function f : E -> F, where E and F are CPOs, is continuous when for all chains G of E,
+the image of f on G has a lub ⊔{f(x) | x ∈ G}, and ⊔{f(x) | x ∈ G} = f(⊔G)
 *)
 
-(* 
-f : E -> E
-R : relation E (E -> E -> Prop)
-R_f : R (f x) (f x)
-*)
-
+(* Define the image of a subset on f *)
 Definition ImageSubsetProp {E F : Type} (P : SubsetProp E) (f : E -> F) : SubsetProp F :=
   fun y => exists x, P x /\ f x = y.
 
 Definition Continuous {E F : Type} {RE : relation E} {RF : relation F} {ORE : OrderRelation E RE}
                        {ORF : OrderRelation F RF} (CPOE : CompletePartialOrder ORE) (CPOF : CompletePartialOrder ORF)
                        (f : E -> F) : Prop := 
-  forall (P : SubsetProp E) (G : Chain P ORE), 
-  forall lub_e, LeastUpperBound_Subset P ORE lub_e -> 
-  exists lub_fe, LeastUpperBound_Subset (ImageSubsetProp P f) ORF lub_fe /\ lub_fe = f lub_e.
-
-
-(* Definition Continuous {E F: Type} {RE : relation E} {RF : relation F} {ORE : OrderRelation E RE}
-                     {ORF : OrderRelation F RF} (CPOE : CompletePartialOrder ORE) (CPOF : CompletePartialOrder ORF)
-                     (f : E -> F) : Prop :=
-  forall (P : SubsetProp E) (G : Chain P) (I : Image f),
-  exists (lub : F) (lub' : E), LeastUpperBound_Subset P ORE  ->
-                            LeastUpperBound_Subset P ORE lub' ->
-                            lub = f lub'. *)
+  forall (P : SubsetProp E) (G : Chain P ORE) (lub_e : E), 
+  LeastUpperBound_Subset P ORE lub_e -> 
+  exists (lub_fe : F), LeastUpperBound_Subset (ImageSubsetProp P f) ORF lub_fe /\ lub_fe = f lub_e.
 
 (* A continuous function is also monotone *)
 Lemma continuous_impl_monotone : forall (E F: Type) (RE : relation E) (RF : relation F) (ORE : OrderRelation E RE)
@@ -267,8 +256,10 @@ Proof.
 Qed.
 
 
+(* For a function f : E -> E, the least fixed point of a function is a value lfp such that
+lfp = f lfp and for all fixpoints, lfp <= fp *)
 Definition LFP {E : Type} {R : relation E} (OR : OrderRelation E R) (f : E -> E) (lfp : E) :=
-  forall fp, fp = f fp -> R fp lfp.
+  lfp = f lfp /\ forall fp, fp = f fp -> R fp lfp.
 
 Fixpoint fix_f {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (fuel : nat) : E :=
   match fuel with
@@ -284,7 +275,44 @@ Proof.
   apply H.
 Qed.
 
+Lemma fix_f_monotone_on_n : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (n :nat),
+  Monotonic OR OR f -> R (fix_f CPO f n) (fix_f CPO f (S n)).
+Proof.
+  intros E R OR CPO f n.
+  generalize dependent E.
+  induction n.
+  - intros. simpl. apply CPO_bottom_lessthan_f_bottom.
+  - intros. simpl. apply IHn with (CPO := CPO) in H as H1. simpl in H1.
+    apply H. assumption.
+Qed.
+
+Lemma fix_f_ordered_on_n : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (n n' :nat),
+  Monotonic OR OR f -> n < n' -> R (fix_f CPO f n) (fix_f CPO f n').
+Proof.
+  intros E R OR CPO f n n' H H'.
+  generalize dependent E.
+  induction H'.
+  - intros. apply fix_f_monotone_on_n. assumption.
+  - intros. specialize (IHH' _ _ _ _ _ H). pose proof (fix_f_monotone_on_n CPO f m).
+    specialize (H0 H). apply OR_transitive with (y := (fix_f CPO f m)); assumption.
+Qed.
+
+
+Definition fix_f_iterates {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) : E -> Prop :=
+  fun (e : E) => exists n, e = fix_f CPO f n.
+
+Lemma fix_f_iterates_is_chain : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (n :nat),
+  Chain (fix_f_iterates CPO f) OR.
+Proof.
+  unfold Chain.
+  intros. destruct x. destruct y. unfold fix_f_iterates in f0. unfold fix_f_iterates in f1.
+  destruct f0. destruct f1. 
+  destruct 
+  
+
+(* fix_f computes the lfp of a continuous function f *)
 Theorem Kleene_fp : forall (E : Type) (R : relation E) (OR : OrderRelation E R) (CPO : CompletePartialOrder OR) (f : E -> E),
-  Continuous CPO CPO f -> exists n fp, fp = fix_f CPO f n /\ Fixpoint_f f fp.
+  Continuous CPO CPO f -> exists n fp, fp = fix_f CPO f n /\ LFP OR f fp.
 Proof.
   intros.
+  unfold Continuous in H.
