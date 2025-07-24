@@ -7,3 +7,4 @@
 *.glob
 *.conf
 *.cache
+.DS_Store
