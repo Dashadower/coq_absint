@@ -80,17 +80,17 @@ Proof.
 Qed.
     
 
-(* Definition Chain {E : Type} (P : SubsetProp E) (R : relation E) (OR : OrderRelation E R) : Prop := 
+Definition Chain {E : Type} (P : SubsetProp E) {R : relation E} (OR : OrderRelation E R) : Prop := 
   forall (x y : Subset P), (SubsetRelation P R) x y \/ (SubsetRelation P R) y x.
 
-Print Chain. *)
+Print Chain.
 
-Class Chain {E : Type} {R : relation E} (P : SubsetProp E) `{OrderRelation E R} : Type := {
+(* Class Chain {E : Type} {R : relation E} (P : SubsetProp E) `{OR : OrderRelation E R} : Type := {
+  Chain_OR : OrderRelation (Subset P) (SubsetRelation P R);
+  Chain_R : relation (Subset P);
   Chaintotal : forall (x y : Subset P), R (proj1_sig x) (proj1_sig y) \/ R (proj1_sig y) (proj1_sig x)
-}.
+}. *)
 
-(* Definition is_chain {E : Type} (P : SubsetProp E) (R : relation E) (OR : OrderRelation E R) : Prop :=
-  TotalOrder (Subset P) (SubsetRelation P R). *)
 
 Definition GreatestElement {E : Type} {R : relation E} (OR : OrderRelation E R) (x : E) :=
   forall y, R y x.
@@ -104,11 +104,14 @@ Definition LeastUpperBound {E : Type} {R : relation E} (OR : OrderRelation E R) 
 Definition GreatestLowerBound {E : Type} {R : relation E} (OR : OrderRelation E R) (x y glb : E) : Prop :=
   R glb x /\ R glb y /\ forall lb, R lb x -> R lb y -> R lb glb.
 
+Definition LeastUpperBound_set {E : Type} {R : relation E} (OR : OrderRelation E R) (lub : E) :=
+  forall (x : E), R x lub /\ forall ub, R x ub -> R lub ub.
+
 Definition LeastUpperBound_Subset {E : Type} {R : relation E} (P : SubsetProp E) (OR : OrderRelation E R) (lub : E) :=
-  forall (x : Subset P), (R (proj1_sig x) lub /\ forall ub, R (proj1_sig x) ub -> R lub ub).
+  forall (x : Subset P), R (proj1_sig x) lub /\ (forall ub : E, (forall x : Subset P, R (proj1_sig x) ub) -> R lub ub).
 
 Definition GreatestLowerBound_Subset {E : Type} {R : relation E} (P : SubsetProp E) (OR : OrderRelation E R) (glb : E) :=
-  forall (x : Subset P), (R glb (proj1_sig x) /\ forall lb, R lb (proj1_sig x) -> R lb glb).
+  forall (x : Subset P), R glb (proj1_sig x) /\ (forall lb : E, (forall x : Subset P, R lb (proj1_sig x)) -> R lb glb).
 
 Theorem LeastUpperBound_unique : forall {E : Type} {R : relation E} (OR : OrderRelation E R) (x y lub lub' : E),
   LeastUpperBound OR x y lub -> LeastUpperBound OR x y lub' -> lub = lub'.
@@ -158,7 +161,7 @@ Print CompleteLattice. *)
 
 Class CompleteLattice {E : Type} (R : relation E) `{L : Lattice E} := {
   CLsubset_lub_exists : forall (P : SubsetProp E),
-                      exists lub : E, LeastUpperBound_Subset P OR lub;
+                          exists lub : E, LeastUpperBound_Subset P OR lub;
   CLsubset_glb_exists : forall (P : SubsetProp E),
                       exists glb : E, GreatestLowerBound_Subset P OR glb;
 }.
@@ -170,15 +173,13 @@ if it has an infimum(bottom) and is such that any chain of elements of E has a l
 Class CompletePartialOrder {E : Type} {R : relation E} (OR: OrderRelation E R) := {
   CPO_bottom : E;
   CPOleast_exists : LeastElement OR CPO_bottom;
-  CPOsubset_lub_exists : forall (P : SubsetProp E) (G : Chain P),
+  CPOsubset_lub_exists : forall (P : SubsetProp E) (G : Chain P OR),
                       exists lub, LeastUpperBound_Subset P OR lub;
  }.
 
  Definition Monotonic {E : Type} {F : Type} {RE : relation E} {RF : relation F}
                       (ORE : OrderRelation E RE) (ORF : OrderRelation F RF) (f : E -> F) : Prop :=
   forall (x y : E), RE x y -> RF (f x) (f y).
-
-Definition Image (A : Type) (R : relation A) (image : A) : Prop := exists a, R a image.
 
 
 (* 
@@ -195,35 +196,75 @@ R : relation E (E -> E -> Prop)
 R_f : R (f x) (f x)
 *)
 
-Definition LeastUpperBound_Subset_lift_f {E F : Type} {R : relation F} (P : SubsetProp E) (ORF : OrderRelation F R) (f: E -> F) (lub : F) :=
-  forall (x : Subset P), (R (f (proj1_sig x)) lub /\ forall ub, R (f(proj1_sig x)) ub -> R lub ub).
+Definition ImageSubsetProp {E F : Type} (P : SubsetProp E) (f : E -> F) : SubsetProp F :=
+  fun y => exists x, P x /\ f x = y.
 
-Definition Continuous {E F: Type} {RE : relation E} {RF : relation F} {ORE : OrderRelation E RE}
+Definition Continuous {E F : Type} {RE : relation E} {RF : relation F} {ORE : OrderRelation E RE}
+                       {ORF : OrderRelation F RF} (CPOE : CompletePartialOrder ORE) (CPOF : CompletePartialOrder ORF)
+                       (f : E -> F) : Prop := 
+  forall (P : SubsetProp E) (G : Chain P ORE), 
+  forall lub_e, LeastUpperBound_Subset P ORE lub_e -> 
+  exists lub_fe, LeastUpperBound_Subset (ImageSubsetProp P f) ORF lub_fe /\ lub_fe = f lub_e.
+
+
+(* Definition Continuous {E F: Type} {RE : relation E} {RF : relation F} {ORE : OrderRelation E RE}
                      {ORF : OrderRelation F RF} (CPOE : CompletePartialOrder ORE) (CPOF : CompletePartialOrder ORF)
                      (f : E -> F) : Prop :=
-  forall (P : SubsetProp E) (G : Chain P),
-  exists (lub : F) (lub' : E), LeastUpperBound_Subset_lift_f P ORF f lub /\
+  forall (P : SubsetProp E) (G : Chain P) (I : Image f),
+  exists (lub : F) (lub' : E), LeastUpperBound_Subset P ORE  ->
                             LeastUpperBound_Subset P ORE lub' ->
-                            lub = f lub'.
-
+                            lub = f lub'. *)
 
 (* A continuous function is also monotone *)
-Lemma continuous_impl_monotone : forall (E F: Type) (RE : relation E) (RF : relation F) (ORE : OrderRelation E RE) (P : SubsetProp E)
-                                        (G : Chain P)
+Lemma continuous_impl_monotone : forall (E F: Type) (RE : relation E) (RF : relation F) (ORE : OrderRelation E RE)
                                         (ORF : OrderRelation F RF) (CPOE : CompletePartialOrder ORE) (CPOF : CompletePartialOrder ORF)
                                         (f : E -> F),
   Continuous CPOE CPOF f -> Monotonic ORE ORF f.
 Proof.
-  intros. 
-  pose proof Chaintotal.
-  unfold Monotonic. intros.
-  pose proof (CPOsubset_lub_exists P G) as lub_e. destruct lub_e as [lub_e Hlub]. unfold LeastUpperBound_Subset in Hlub.
-  
-  unfold Continuous in H. 
-  unfold Monotonic. intros.
-  destruct (H P) as [lub_fe [lub_e' [H1 [H2 H3]]]];[assumption|].
-  clear H. unfold LeastUpperBound_Subset_lift_f in H1.
-Abort.
+  intros.
+  unfold Continuous in H.
+  unfold Monotonic. intros.  (* lub_e = y, lub_fe = f lub_e , lub_fe = (f y) -> RF (f x) lub_fe *)
+  remember (fun e : E => e = x \/ e = y) as PS eqn:EqPS.
+  specialize (H PS).
+  assert (ps_proj_value : (forall v : Subset PS, proj1_sig v = x \/ proj1_sig v = y)). {
+    intros. unfold proj1_sig. destruct v. rewrite EqPS in p. destruct p; auto.
+  }
+  assert (ps_proj_f_value : (forall v : Subset (ImageSubsetProp PS f), proj1_sig v = f x \/ proj1_sig v = f y)).
+  {
+    intros. unfold proj1_sig. destruct v. unfold ImageSubsetProp in i. rewrite EqPS in i.
+    destruct i. destruct H1. destruct H1. rewrite H1 in *; auto. rewrite H1 in *. auto.
+  }
+  assert (ps_is_chain : Chain PS ORE). {
+    unfold Chain.
+    intros.
+    unfold SubsetRelation.
+    unfold proj1_sig. destruct x0. destruct y0. rewrite EqPS in *.
+    destruct p; destruct p0; subst; auto; left; apply OR_reflexive.
+  }
+  assert (y_is_lube : LeastUpperBound_Subset PS ORE y). {
+    unfold LeastUpperBound_Subset. intros.
+    pose proof (ps_proj_value x0) as vx0.
+    destruct vx0. rewrite H1 in *.
+    - split.
+      + assumption.
+      + intros. assert (PS y). {rewrite EqPS. right. reflexivity. } 
+        specialize (H2 (exist _ y H3)). assumption.
+    - rewrite H1 in *. split.
+      + apply OR_reflexive.
+      + intros. assert (PS y). {rewrite EqPS. right. reflexivity. }
+        specialize (H2 (exist _ y H3)). assumption.
+  }
+  specialize (H ps_is_chain y). apply H in y_is_lube.
+  destruct y_is_lube as [lub_fe [H1 H2]].
+  unfold LeastUpperBound_Subset in H1.
+  assert (ImageSubsetProp PS f (f x)). {
+    unfold ImageSubsetProp. exists x.
+    split.
+    - rewrite EqPS. left. reflexivity.
+    - reflexivity.
+    }
+   specialize (H1 (exist _ (f x) H3)). destruct H1. rewrite H2 in H1. apply H1.
+Qed.
 
 
 Definition LFP {E : Type} {R : relation E} (OR : OrderRelation E R) (f : E -> E) (lfp : E) :=
