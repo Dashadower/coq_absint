@@ -390,7 +390,7 @@ Qed.
    consisting of the values of the iterates of f *)
 Theorem Kleene_fp : forall (E : Type) (R : relation E) (OR : OrderRelation E R) (CPO : CompletePartialOrder OR) (f : E -> E),
   Continuous CPO CPO f -> exists lfp, LeastFixedPoint OR f lfp /\
-  LeastUpperBound_Subset (ImageSubsetProp (fix_f_iterates CPO f) f) OR lfp.
+  LeastUpperBound_Subset (fix_f_iterates CPO f) OR lfp.
 Proof.
   intros.
   apply continuous_impl_monotone in H as mono.
@@ -437,5 +437,6 @@ Proof.
       specialize (H1 x0). simpl. subst. assumption.
     }
     apply H5 in H6. assumption.
-  - (* lub_fixf is lfp of f(G) *) apply f_lub_equals_lub in Hlub_fixf; assumption.
+  - (* lub_fixf is lub of G. This is trivial, since we fixed the lub of G and proved that it is the lfp of f *)
+    assumption.
 Qed.
