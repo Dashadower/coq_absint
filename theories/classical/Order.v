@@ -173,6 +173,7 @@ if it has an infimum(bottom) and is such that any chain of elements of E has a l
 Class CompletePartialOrder {E : Type} {R : relation E} (OR: OrderRelation E R) := {
   CPO_bottom : E;
   CPOleast_exists : LeastElement OR CPO_bottom;
+  CPO_lub_exists : exists lub, LeastUpperBound_set OR lub;
   CPOsubset_lub_exists : forall (P : SubsetProp E) (G : Chain P OR),
                       exists lub, LeastUpperBound_Subset P OR lub;
  }.
@@ -194,8 +195,8 @@ the image of f on G has a lub ⊔{f(x) | x ∈ G}, and ⊔{f(x) | x ∈ G} = f(�
 *)
 
 (* Define the image of a subset on f *)
-Definition ImageSubsetProp {E F : Type} (P : SubsetProp E) (f : E -> F) : SubsetProp F :=
-  fun y => exists x, P x /\ f x = y.
+Definition ImageSubsetProp {E F : Type} (P : SubsetProp E) (func : E -> F) : SubsetProp F :=
+  fun f => exists (e : E),  P e /\ func e = f.
 
 Definition Continuous {E F : Type} {RE : relation E} {RF : relation F} {ORE : OrderRelation E RE}
                        {ORF : OrderRelation F RF} (CPOE : CompletePartialOrder ORE) (CPOF : CompletePartialOrder ORF)
@@ -256,13 +257,20 @@ Proof.
 Qed.
 
 
+Definition FixedPoint {E : Type} {R : relation E} (OR : OrderRelation E R) (f : E -> E) (fp : E) : Prop :=
+  fp = f fp.
+
 (* For a function f : E -> E, the least fixed point of a function is a value lfp such that
 lfp = f lfp and for all fixpoints, lfp <= fp *)
-Definition LFP {E : Type} {R : relation E} (OR : OrderRelation E R) (f : E -> E) (lfp : E) :=
-  lfp = f lfp /\ forall fp, fp = f fp -> R fp lfp.
+Definition LeastFixedPoint {E : Type} {R : relation E} (OR : OrderRelation E R) (f : E -> E) (lfp : E) :=
+  FixedPoint OR f lfp -> forall fp, FixedPoint OR f fp -> R lfp fp.
 
-Fixpoint fix_f {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (fuel : nat) : E :=
-  match fuel with
+(* Inductive KleeneChain {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) : E -> Prop :=
+  | KC_bot : KleeneChain CPO f CPO_bottom
+  | KC_succ (e : E) : KleeneChain CPO f e -> KleeneChain CPO f (f e). *)
+
+Fixpoint fix_f {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (n : nat) : E :=
+  match n with
   | 0 => CPO_bottom
   | S n' => f (fix_f CPO f n')
   end.
@@ -301,18 +309,144 @@ Qed.
 Definition fix_f_iterates {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) : E -> Prop :=
   fun (e : E) => exists n, e = fix_f CPO f n.
 
-Lemma fix_f_iterates_is_chain : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (n :nat),
-  Chain (fix_f_iterates CPO f) OR.
+Lemma fix_f_iterates_is_chain : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E),
+  Monotonic OR OR f -> Chain (fix_f_iterates CPO f) OR.
 Proof.
   unfold Chain.
   intros. destruct x. destruct y. unfold fix_f_iterates in f0. unfold fix_f_iterates in f1.
   destruct f0. destruct f1. 
-  destruct 
-  
+  destruct (x1 <? x2) eqn:Eqb.
+  apply Nat.ltb_lt in Eqb.
+  apply (fix_f_ordered_on_n CPO f x1 x2) in H.
+  - left. unfold SubsetRelation. rewrite e. rewrite e0. simpl. assumption.
+  - assumption.
+  - apply Nat.ltb_ge in Eqb.
+    inversion Eqb.
+    + left. unfold SubsetRelation. simpl. 
+      assert (x = x0). {
+        rewrite e. rewrite e0. induction x1; rewrite H0; simpl; reflexivity.
 
-(* fix_f computes the lfp of a continuous function f *)
-Theorem Kleene_fp : forall (E : Type) (R : relation E) (OR : OrderRelation E R) (CPO : CompletePartialOrder OR) (f : E -> E),
-  Continuous CPO CPO f -> exists n fp, fp = fix_f CPO f n /\ LFP OR f fp.
+      }
+      rewrite H1. apply OR_reflexive.
+    + apply Nat.succ_le_mono in H0. rewrite H1 in H0. apply Arith_base.le_S_gt_stt in H0.
+      apply (fix_f_ordered_on_n CPO f x2 x1) in H0.
+      * right. unfold SubsetRelation. simpl. rewrite e. rewrite e0. assumption.
+      * assumption.
+Qed.
+  
+Lemma fix_f_iterates_implies_fix_f {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) :
+  forall (e : Subset (fix_f_iterates CPO f)), exists n, proj1_sig e = fix_f CPO f n.
+Proof.
+  intros. destruct e.
+  unfold fix_f_iterates in f0. destruct f0 as [n f0].
+  exists n. simpl. assumption.
+Qed.
+
+(* if e is an element of the chain fix_f_iterates, than (f e) is also an element *)
+Lemma f_f_fix_iterates_in_chain : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (e : E),
+  (fix_f_iterates CPO f) e -> (fix_f_iterates CPO f) (f e).
+Proof.
+  intros. destruct H. unfold fix_f_iterates. exists (S x). simpl. rewrite H. reflexivity. 
+Qed.
+
+Lemma fixf_f_S_n : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (e : E) (n : nat),
+  e = fix_f CPO f n -> f e = fix_f CPO f (S n).
+Proof.
+  intros E R OR CPO f e n.
+  generalize dependent E.
+  induction n; intros.
+  - simpl in *. rewrite H. reflexivity.
+  - simpl in *. rewrite H. reflexivity.
+Qed.
+
+Lemma f_lub_equals_lub : forall (E : Type) (R : relation E) (OR : OrderRelation E R) (CPO : CompletePartialOrder OR) (f : E -> E) (lub : E),
+  Monotonic OR OR f ->
+  LeastUpperBound_Subset (fix_f_iterates CPO f) OR lub ->
+  LeastUpperBound_Subset (ImageSubsetProp (fix_f_iterates CPO f) f) OR lub.
 Proof.
   intros.
+  unfold LeastUpperBound_Subset.
+  split.
+  - intros. destruct x as [fe Hfe].
+    unfold ImageSubsetProp in Hfe.
+    destruct Hfe as [e [Hfe fe_ident]].
+    apply f_f_fix_iterates_in_chain in Hfe as Hffe. simpl.
+    unfold LeastUpperBound_Subset in H0. specialize (H0 (exist _ (f e) Hffe)).
+    destruct H0. simpl in H0. rewrite fe_ident in H0. assumption.
+  - intros ub. intros Hub.
+    destruct x as [fe Hfe].
+    unfold ImageSubsetProp in Hfe.
+    destruct Hfe as [e [He fe_ident]].
+    unfold LeastUpperBound_Subset in H0. specialize (H0 (exist _ e He)).
+    simpl in H0. destruct H0. specialize (H1 ub).
+
+    assert (forall x : Subset (fix_f_iterates CPO f), R (proj1_sig x) ub). {
+      intros. destruct x.
+      simpl. unfold fix_f_iterates in f0. destruct f0.
+      induction x0.
+      - simpl in H2. rewrite H2. apply CPOleast_exists.
+      - assert ((ImageSubsetProp (fix_f_iterates CPO f) f) x). {
+        unfold ImageSubsetProp. exists (fix_f CPO f x0).
+        split.
+          - unfold fix_f_iterates. exists x0. reflexivity.
+          - simpl in H2. symmetry. assumption.
+        }
+        specialize (Hub (exist _ x H3)). simpl in Hub. assumption.
+    }
+    apply H1 in H2. assumption.
+Qed.
+
+(* For a continuous function f, The LFP of f is the least upper bound of the chain
+   consisting of the values of the iterates of f *)
+Theorem Kleene_fp : forall (E : Type) (R : relation E) (OR : OrderRelation E R) (CPO : CompletePartialOrder OR) (f : E -> E),
+  Continuous CPO CPO f -> exists lfp, LeastFixedPoint OR f lfp /\
+  LeastUpperBound_Subset (ImageSubsetProp (fix_f_iterates CPO f) f) OR lfp.
+Proof.
+  intros.
+  apply continuous_impl_monotone in H as mono.
+  apply fix_f_iterates_is_chain with (CPO := CPO) in mono as ischain_fixf.
+  apply (CPOsubset_lub_exists (fix_f_iterates CPO f)) in ischain_fixf as Hfixf.
+  destruct Hfixf as [lub_fixf Hlub_fixf].
+
+  (* apply continuity to fixf chain *)
   unfold Continuous in H.
+  specialize (H (fix_f_iterates CPO f)).
+  apply H with (lub_e := lub_fixf) in ischain_fixf. 2: assumption.
+  clear H.
+  destruct ischain_fixf as [flub_fixf cont].
+  destruct cont as [Hflub_fixf cont].
+
+  unfold LeastFixedPoint.
+  (* This yields f lub_fixf = flub_fixf.
+     We now need to show that lub_fixf is a fixpoint of f, that is, f lub_fixf = lub_fixf 
+     Note that flub_fixf is the lub of f applied to the fixf chain, which equals lub of fixf *) 
+  
+  exists lub_fixf.
+  split.
+  - intros. unfold FixedPoint in *.
+    assert (forall n, R (fix_f CPO f n) fp). {
+      intros n.
+      induction n.
+      - simpl. apply CPOleast_exists.
+      - simpl. apply mono in IHn. rewrite <- H0 in IHn. assumption.
+    }
+
+    assert (forall n, R (fix_f CPO f n) lub_fixf). {
+      intros n.
+      induction n.
+      - simpl. apply CPOleast_exists.
+      - simpl. apply mono in IHn. rewrite <- H in IHn. assumption.
+    }
+    unfold LeastUpperBound_Subset in Hlub_fixf.
+    assert ((fix_f_iterates CPO f) (fix_f CPO f 0)). {
+      unfold fix_f_iterates. exists 0. reflexivity.
+    }
+    specialize (Hlub_fixf (exist _ (fix_f CPO f 0) H3)).
+    destruct Hlub_fixf. specialize (H5 fp).
+    assert (forall x : Subset (fix_f_iterates CPO f), R (proj1_sig x) fp). {
+      intros. destruct x. unfold fix_f_iterates in f0. destruct f0.
+      specialize (H1 x0). simpl. subst. assumption.
+    }
+    apply H5 in H6. assumption.
+  - apply f_lub_equals_lub in Hlub_fixf; assumption.
+Qed.
