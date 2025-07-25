@@ -269,6 +269,7 @@ Definition LeastFixedPoint {E : Type} {R : relation E} (OR : OrderRelation E R) 
   | KC_bot : KleeneChain CPO f CPO_bottom
   | KC_succ (e : E) : KleeneChain CPO f e -> KleeneChain CPO f (f e). *)
 
+(* Compute the element of the nth value of kleene chain f^n(CPO_Bottom) *)
 Fixpoint fix_f {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (n : nat) : E :=
   match n with
   | 0 => CPO_bottom
@@ -283,6 +284,7 @@ Proof.
   apply H.
 Qed.
 
+(* If f is a monotonic function, f^n <= F^{S n} *)
 Lemma fix_f_monotone_on_n : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (n :nat),
   Monotonic OR OR f -> R (fix_f CPO f n) (fix_f CPO f (S n)).
 Proof.
@@ -294,6 +296,7 @@ Proof.
     apply H. assumption.
 Qed.
 
+(* Kleene chain is monotonic on n *)
 Lemma fix_f_ordered_on_n : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (n n' :nat),
   Monotonic OR OR f -> n < n' -> R (fix_f CPO f n) (fix_f CPO f n').
 Proof.
@@ -306,9 +309,11 @@ Proof.
 Qed.
 
 
+(* Define the kleene chain as a prop *)
 Definition fix_f_iterates {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) : E -> Prop :=
   fun (e : E) => exists n, e = fix_f CPO f n.
 
+(* Prove that the above definition of the kleene chain is indeed a chain *)
 Lemma fix_f_iterates_is_chain : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E),
   Monotonic OR OR f -> Chain (fix_f_iterates CPO f) OR.
 Proof.
@@ -333,14 +338,6 @@ Proof.
       * right. unfold SubsetRelation. simpl. rewrite e. rewrite e0. assumption.
       * assumption.
 Qed.
-  
-Lemma fix_f_iterates_implies_fix_f {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) :
-  forall (e : Subset (fix_f_iterates CPO f)), exists n, proj1_sig e = fix_f CPO f n.
-Proof.
-  intros. destruct e.
-  unfold fix_f_iterates in f0. destruct f0 as [n f0].
-  exists n. simpl. assumption.
-Qed.
 
 (* if e is an element of the chain fix_f_iterates, than (f e) is also an element *)
 Lemma f_f_fix_iterates_in_chain : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (e : E),
@@ -349,16 +346,9 @@ Proof.
   intros. destruct H. unfold fix_f_iterates. exists (S x). simpl. rewrite H. reflexivity. 
 Qed.
 
-Lemma fixf_f_S_n : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (e : E) (n : nat),
-  e = fix_f CPO f n -> f e = fix_f CPO f (S n).
-Proof.
-  intros E R OR CPO f e n.
-  generalize dependent E.
-  induction n; intros.
-  - simpl in *. rewrite H. reflexivity.
-  - simpl in *. rewrite H. reflexivity.
-Qed.
-
+(* The lub of the kleene chain is equal to the image of the chain of f. 
+   This is obvious, since the kleene chain will also contain the value of
+   f^{S n} for all n *)
 Lemma f_lub_equals_lub : forall (E : Type) (R : relation E) (OR : OrderRelation E R) (CPO : CompletePartialOrder OR) (f : E -> E) (lub : E),
   Monotonic OR OR f ->
   LeastUpperBound_Subset (fix_f_iterates CPO f) OR lub ->
@@ -417,13 +407,12 @@ Proof.
   destruct cont as [Hflub_fixf cont].
 
   unfold LeastFixedPoint.
-  (* This yields f lub_fixf = flub_fixf.
+  (* By applying the definition of continuity, we get f lub_fixf = flub_fixf.
      We now need to show that lub_fixf is a fixpoint of f, that is, f lub_fixf = lub_fixf 
      Note that flub_fixf is the lub of f applied to the fixf chain, which equals lub of fixf *) 
-  
   exists lub_fixf.
   split.
-  - intros. unfold FixedPoint in *.
+  - (* lub_fixf is lfp *) intros. unfold FixedPoint in *.
     assert (forall n, R (fix_f CPO f n) fp). {
       intros n.
       induction n.
@@ -448,5 +437,5 @@ Proof.
       specialize (H1 x0). simpl. subst. assumption.
     }
     apply H5 in H6. assumption.
-  - apply f_lub_equals_lub in Hlub_fixf; assumption.
+  - (* lub_fixf is lfp of f(G) *) apply f_lub_equals_lub in Hlub_fixf; assumption.
 Qed.
