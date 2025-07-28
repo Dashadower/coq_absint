@@ -244,17 +244,15 @@ Proof.
     destruct p; destruct p0; subst; auto; left; apply OR_reflexive.
   }
   assert (y_is_lube : LeastUpperBound_Subset PS ORE y). {
-    unfold LeastUpperBound_Subset. intros.
-    pose proof (ps_proj_value x0) as vx0.
-    destruct vx0. rewrite H1 in *.
-    - split.
-      + assumption.
-      + intros. assert (PS y). {rewrite EqPS. right. reflexivity. } 
-        specialize (H2 (exist _ y H3)). assumption.
-    - rewrite H1 in *. split.
-      + apply OR_reflexive.
-      + intros. assert (PS y). {rewrite EqPS. right. reflexivity. }
-        specialize (H2 (exist _ y H3)). assumption.
+    unfold LeastUpperBound_Subset.
+    split.
+    - intros.
+      pose proof (ps_proj_value x0) as vx0.
+      destruct vx0.
+      * rewrite H1 in *. assumption.
+      * rewrite H1. apply OR_reflexive.
+    - intros. assert (PS y). {rewrite EqPS. right. reflexivity. }
+      specialize (H1 (exist _  y H2)). assumption.
   }
   specialize (H ps_is_chain y). apply H in y_is_lube.
   destruct y_is_lube as [lub_fe [H1 H2]].
@@ -264,8 +262,10 @@ Proof.
     split.
     - rewrite EqPS. left. reflexivity.
     - reflexivity.
-    }
-   specialize (H1 (exist _ (f x) H3)). destruct H1. rewrite H2 in H1. apply H1.
+  }
+  rewrite <- H2.
+  destruct H1.
+  specialize (H1 (exist _ (f x) H3)). apply H1.
 Qed.
 
 
@@ -358,7 +358,7 @@ Proof.
   intros. destruct H. unfold fix_f_iterates. exists (S x). simpl. rewrite H. reflexivity. 
 Qed.
 
-(* The lub of the kleene chain is equal to the image of the chain of f. 
+(* The lub of the kleene chain is equal to the lub of the image of the chain of f. 
    This is obvious, since the kleene chain will also contain the value of
    f^{S n} for all n *)
 Lemma f_lub_equals_lub : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (lub : E),
@@ -373,14 +373,11 @@ Proof.
     unfold ImageSubsetProp in Hfe.
     destruct Hfe as [e [Hfe fe_ident]].
     apply f_f_fix_iterates_in_chain in Hfe as Hffe. simpl.
-    unfold LeastUpperBound_Subset in H0. specialize (H0 (exist _ (f e) Hffe)).
-    destruct H0. simpl in H0. rewrite fe_ident in H0. assumption.
+    unfold LeastUpperBound_Subset in H0. destruct H0 as [H0 H1]. specialize (H0 (exist _ (f e) Hffe)).
+    simpl in H0. rewrite fe_ident in H0. assumption.
   - intros ub. intros Hub.
-    destruct x as [fe Hfe].
-    unfold ImageSubsetProp in Hfe.
-    destruct Hfe as [e [He fe_ident]].
-    unfold LeastUpperBound_Subset in H0. specialize (H0 (exist _ e He)).
-    simpl in H0. destruct H0. specialize (H1 ub).
+    unfold LeastUpperBound_Subset in H0.
+    destruct H0.
 
     assert (forall x : Subset (fix_f_iterates CPO f), R (proj1_sig x) ub). {
       intros. destruct x.
@@ -395,6 +392,7 @@ Proof.
         }
         specialize (Hub (exist _ x H3)). simpl in Hub. assumption.
     }
+    specialize (H1 ub).
     apply H1 in H2. assumption.
 Qed.
 
@@ -428,33 +426,40 @@ Proof.
     + (* lub_fixf is fixpoint *)
       unfold FixedPoint.
       pose proof (((f_lub_equals_lub CPO f lub_fixf) mono) Hlub_fixf).
-      unfold LeastUpperBound_Subset in Hflub_fixf.
-      unfold LeastUpperBound_Subset in H.
-   (* lub_fixf is lfp *) intros. unfold FixedPoint in *.
-    assert (forall n, R (fix_f CPO f n) fp). {
-      intros n.
-      induction n.
-      - simpl. apply CPOleast_exists.
-      - simpl. apply mono in IHn. rewrite <- H0 in IHn. assumption.
-    }
+      apply LeastUpperBound_Subset_unique with (lub' := lub_fixf) in Hflub_fixf.
+      * rewrite cont in Hflub_fixf. rewrite Hflub_fixf. reflexivity.
+      * assumption.
+    + (* lub_fixf is lfp *)
+      intros. unfold FixedPoint in *.
+      assert (forall n, R (fix_f CPO f n) fp). {
+        intros n.
+        induction n.
+        - simpl. apply CPOleast_exists.
+        - simpl. apply mono in IHn. rewrite <- H in IHn. assumption.
+      }
 
-    assert (forall n, R (fix_f CPO f n) lub_fixf). {
-      intros n.
-      induction n.
-      - simpl. apply CPOleast_exists.
-      - simpl. apply mono in IHn. rewrite <- H in IHn. assumption.
-    }
-    unfold LeastUpperBound_Subset in Hlub_fixf.
-    assert ((fix_f_iterates CPO f) (fix_f CPO f 0)). {
-      unfold fix_f_iterates. exists 0. reflexivity.
-    }
-    specialize (Hlub_fixf (exist _ (fix_f CPO f 0) H3)).
-    destruct Hlub_fixf. specialize (H5 fp).
-    assert (forall x : Subset (fix_f_iterates CPO f), R (proj1_sig x) fp). {
-      intros. destruct x. unfold fix_f_iterates in f0. destruct f0.
-      specialize (H1 x0). simpl. subst. assumption.
-    }
-    apply H5 in H6. assumption.
+      assert (forall n, R (fix_f CPO f n) lub_fixf). {
+        intros n.
+        induction n.
+        - simpl. apply CPOleast_exists.
+        - simpl. apply mono in IHn.
+          pose proof (((f_lub_equals_lub CPO f lub_fixf) mono) Hlub_fixf).
+          apply LeastUpperBound_Subset_unique with (lub' := lub_fixf) in Hflub_fixf.
+          + subst. rewrite <- cont in IHn. assumption.
+          + assumption.
+      }
+      unfold LeastUpperBound_Subset in Hlub_fixf.
+      assert ((fix_f_iterates CPO f) (fix_f CPO f 0)). {
+        unfold fix_f_iterates. exists 0. reflexivity.
+      }
+      destruct Hlub_fixf.
+      specialize (H3 (exist _ (fix_f CPO f 0) H2)).
+      specialize (H4 fp).
+      assert (forall x : Subset (fix_f_iterates CPO f), R (proj1_sig x) fp). {
+        intros. destruct x. unfold fix_f_iterates in f0. destruct f0.
+        specialize (H1 x0). simpl. subst. apply H0.
+      }
+      apply H4. assumption.
   - (* lub_fixf is lub of G. This is trivial, since we fixed the lub of G and proved that it is the lfp of f *)
     assumption.
 Qed.
