@@ -108,10 +108,10 @@ Definition LeastUpperBound_set {E : Type} {R : relation E} (OR : OrderRelation E
   forall (x : E), R x lub /\ forall ub, R x ub -> R lub ub.
 
 Definition LeastUpperBound_Subset {E : Type} {R : relation E} (P : SubsetProp E) (OR : OrderRelation E R) (lub : E) :=
-  forall (x : Subset P), R (proj1_sig x) lub /\ (forall ub : E, (forall x : Subset P, R (proj1_sig x) ub) -> R lub ub).
+  (forall (x : Subset P), R (proj1_sig x) lub) /\ (forall ub : E, (forall x : Subset P, R (proj1_sig x) ub) -> R lub ub).
 
 Definition GreatestLowerBound_Subset {E : Type} {R : relation E} (P : SubsetProp E) (OR : OrderRelation E R) (glb : E) :=
-  forall (x : Subset P), R glb (proj1_sig x) /\ (forall lb : E, (forall x : Subset P, R lb (proj1_sig x)) -> R lb glb).
+  (forall (x : Subset P), R glb (proj1_sig x)) /\ (forall lb : E, (forall x : Subset P, R lb (proj1_sig x)) -> R lb glb).
 
 Theorem LeastUpperBound_unique : forall {E : Type} {R : relation E} (OR : OrderRelation E R) (x y lub lub' : E),
   LeastUpperBound OR x y lub -> LeastUpperBound OR x y lub' -> lub = lub'.
@@ -139,6 +139,18 @@ Proof.
       * assumption.
     + assumption.
   - assumption.
+Qed.
+
+Lemma LeastUpperBound_Subset_unique : forall {E : Type} {R : relation E} (P : SubsetProp E) (OR : OrderRelation E R) (lub lub' : E),
+  LeastUpperBound_Subset P OR lub -> LeastUpperBound_Subset P OR lub' -> lub = lub'.
+Proof.
+  intros.
+  unfold LeastUpperBound_Subset in *.
+  destruct H.
+  destruct H0.
+  apply OR_antisymmetric.
+  - apply H1. assumption.
+  - apply H2. assumption.
 Qed.
 
 
@@ -263,7 +275,7 @@ Definition FixedPoint {E : Type} {R : relation E} (OR : OrderRelation E R) (f : 
 (* For a function f : E -> E, the least fixed point of a function is a value lfp such that
 lfp = f lfp and for all fixpoints, lfp <= fp *)
 Definition LeastFixedPoint {E : Type} {R : relation E} (OR : OrderRelation E R) (f : E -> E) (lfp : E) :=
-  FixedPoint OR f lfp -> forall fp, FixedPoint OR f fp -> R lfp fp.
+  FixedPoint OR f lfp /\ forall fp, FixedPoint OR f fp -> R lfp fp.
 
 (* Inductive KleeneChain {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) : E -> Prop :=
   | KC_bot : KleeneChain CPO f CPO_bottom
@@ -349,7 +361,7 @@ Qed.
 (* The lub of the kleene chain is equal to the image of the chain of f. 
    This is obvious, since the kleene chain will also contain the value of
    f^{S n} for all n *)
-Lemma f_lub_equals_lub : forall (E : Type) (R : relation E) (OR : OrderRelation E R) (CPO : CompletePartialOrder OR) (f : E -> E) (lub : E),
+Lemma f_lub_equals_lub : forall {E : Type} {R : relation E} {OR : OrderRelation E R} (CPO : CompletePartialOrder OR) (f : E -> E) (lub : E),
   Monotonic OR OR f ->
   LeastUpperBound_Subset (fix_f_iterates CPO f) OR lub ->
   LeastUpperBound_Subset (ImageSubsetProp (fix_f_iterates CPO f) f) OR lub.
@@ -412,7 +424,13 @@ Proof.
      Note that flub_fixf is the lub of f applied to the fixf chain, which equals lub of fixf *) 
   exists lub_fixf.
   split.
-  - (* lub_fixf is lfp *) intros. unfold FixedPoint in *.
+  - split.
+    + (* lub_fixf is fixpoint *)
+      unfold FixedPoint.
+      pose proof (((f_lub_equals_lub CPO f lub_fixf) mono) Hlub_fixf).
+      unfold LeastUpperBound_Subset in Hflub_fixf.
+      unfold LeastUpperBound_Subset in H.
+   (* lub_fixf is lfp *) intros. unfold FixedPoint in *.
     assert (forall n, R (fix_f CPO f n) fp). {
       intros n.
       induction n.
